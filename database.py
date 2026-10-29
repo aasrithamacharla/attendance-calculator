@@ -3,11 +3,14 @@ import os
 import datetime
 from contextlib import contextmanager
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'auth.db')
+def get_db_path():
+    return os.environ.get('ATTENDANCE_DB_PATH', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'auth.db'))
+
+DB_PATH = get_db_path()
 
 @contextmanager
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     try:
@@ -97,29 +100,7 @@ def init_db():
             )
         ''')
 
-        # Check existing employees
-        cursor.execute("SELECT COUNT(*) as count FROM employees")
-        emp_count = cursor.fetchone()['count']
-        if emp_count == 0:
-            cursor.execute('''
-                INSERT INTO employees (name, salary, emp_type, narration)
-                VALUES 
-                    ('Sarah Miller', 60000.0, 'Full Day', 'Senior full-stack engineer'),
-                    ('James Wilson', 30000.0, 'Half Day', 'Works afternoon half-day shift (1pm - 5pm)'),
-                    ('Elena Rostova', 1500.0, 'Part Time', 'Part-time operations specialist - paid per day wage')
-            ''')
-
-        # Check existing workers
-        cursor.execute("SELECT COUNT(*) as count FROM workers")
-        worker_count = cursor.fetchone()['count']
-        if worker_count == 0:
-            cursor.execute('''
-                INSERT INTO workers (name, role, salary, narration)
-                VALUES 
-                    ('Robert Taylor', 'Maintenance & Facilities', 22000.0, 'Facilities maintenance and repairs'),
-                    ('Maya Patel', 'Logistics Support', 25000.0, 'Warehouse logistics and supply')
-            ''')
-
+        # Do not auto-seed fake records; database should strictly reflect real user entries
         # Normalize statuses
         cursor.execute("UPDATE attendance_records SET status = 'Full Day' WHERE status IN ('Present')")
         cursor.execute("UPDATE attendance_records SET status = 'Leave' WHERE status IN ('Absent', 'On Leave')")

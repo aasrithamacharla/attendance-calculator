@@ -28,18 +28,22 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                 </button>
 
-                <div class="flex items-center gap-2 px-2">
-                    <svg class="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="relative flex items-center gap-2 px-2.5 py-1 rounded-xl hover:bg-slate-700/50 transition cursor-pointer select-none group" id="calendarDateWrapper" title="Click to choose a date (DD/MM/YYYY)">
+                    <svg class="w-5 h-5 text-brand-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                     </svg>
+                    <span id="calendarDateDisplay" class="text-sm font-bold text-white tracking-wider font-mono">
+                        {{ selected_date|dmy }}
+                    </span>
                     <input 
                         type="date" 
                         id="calendarDateInput" 
                         value="{{ selected_date }}" 
-                        class="bg-transparent text-sm font-semibold text-white focus:outline-none cursor-pointer"
+                        class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                         title="Click to choose a date"
                     />
                 </div>
+
 
                 <button type="button" id="nextDayBtn" title="Next Day" class="p-2 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl transition">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -177,8 +181,9 @@
                     <h2 class="text-lg font-semibold text-white flex items-center gap-2">
                         <span>Daily Attendance Roster</span>
                         <span id="dateDisplayBadge" class="text-xs px-2.5 py-1 rounded-full bg-brand-500/10 text-brand-400 border border-brand-500/20 font-mono">
-                            {{ selected_date }}
+                            {{ selected_date|dmy }}
                         </span>
+
                     </h2>
                     <p class="text-xs text-slate-400 mt-0.5">Click any active status to deselect/unmark. Click the dropdown arrow (▼) to add daily notes.</p>
                 </div>
@@ -864,10 +869,22 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const calendarInput = document.getElementById('calendarDateInput');
+    const calendarDateDisplay = document.getElementById('calendarDateDisplay');
+    const calendarDateWrapper = document.getElementById('calendarDateWrapper');
     const prevDayBtn = document.getElementById('prevDayBtn');
     const nextDayBtn = document.getElementById('nextDayBtn');
     const todayBtn = document.getElementById('todayBtn');
     const dateDisplayBadge = document.getElementById('dateDisplayBadge');
+
+    function toDMY(dateStr) {
+        if (!dateStr) return '';
+        const parts = String(dateStr).trim().split('-');
+        if (parts.length === 3) {
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        return dateStr;
+    }
+
 
     const statFull = document.getElementById('statFull');
     const statHalf = document.getElementById('statHalf');
@@ -903,35 +920,132 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getFbUrl(path = '') {
-        const clean = path.replace(/^\/+|\/+$/g, '');
-        let url = clean ? `${FIREBASE_DB_URL}/${clean}.json` : `${FIREBASE_DB_URL}/.json`;
-        if (fbClientSecret) {
-            url += `?auth=${encodeURIComponent(fbClientSecret)}`;
+        let clean = (path || '').replace(/^\/+|\/+$/g, '');
+        let query = '';
+        if (clean.includes('?')) {
+            const parts = clean.split('?');
+            clean = parts[0];
+            query = parts[1];
         }
+        if (clean.endsWith('.json')) {
+            clean = clean.slice(0, -5);
+        }
+        let url = clean ? `${FIREBASE_DB_URL}/${clean}.json` : `${FIREBASE_DB_URL}/.json`;
+        const params = new URLSearchParams(query);
+        if (fbClientSecret) {
+            params.set('auth', fbClientSecret);
+        }
+        const qs = params.toString();
+        if (qs) url += `?${qs}`;
         return url;
     }
 
     async function syncAttendanceToFirebaseClient(empId, dateStr, status, slots = [], notes = '') {
         try {
-            const url = getFbUrl(`employees/emp_${empId}/attendance/${dateStr}`);
+            const cleanEmpId = String(empId).replace(/^emp_/, '');
+            const attUrl = getFbUrl(`employees/emp_${cleanEmpId}/attendance/${dateStr}`);
+
             if (!status || status === 'deselect') {
-                await fetch(url, { method: 'DELETE' });
+                await fetch(attUrl, { method: 'DELETE', mode: 'cors' });
+                console.log(`[Firebase Live] Deleted attendance for emp_${cleanEmpId} on ${dateStr}`);
             } else {
-                const slotsArray = Array.isArray(slots) ? slots : (slots ? slots.split(',') : []);
-                await fetch(url, {
+                const slotsArray = Array.isArray(slots) ? slots : (slots ? String(slots).split(',').map(s=>s.trim()).filter(Boolean) : []);
+                
+                let noteVal = notes;
+                if (!noteVal) {
+                    const drawer = document.getElementById(`dayNoteDrawer-${cleanEmpId}`);
+                    const input = drawer ? drawer.querySelector('.day-note-input') : null;
+                    if (input && input.value) noteVal = input.value.trim();
+                }
+
+                // Write attendance directly to Firebase
+                await fetch(attUrl, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
+                    mode: 'cors',
                     body: JSON.stringify({
                         date: dateStr,
                         status: status,
                         slots: slotsArray,
-                        notes: notes || '',
+                        notes: noteVal || '',
                         updated_at: new Date().toISOString()
                     })
                 });
+
+                // Also ensure the employee's profile container is present in Firebase
+                const row = document.querySelector(`.employee-row[data-id="${cleanEmpId}"]`);
+                const empName = row ? (row.querySelector('.emp-name-span')?.textContent || `Employee #${cleanEmpId}`) : `Employee #${cleanEmpId}`;
+                const empType = row ? (row.getAttribute('data-emp-type') || 'Full Day') : 'Full Day';
+
+                fetch(getFbUrl(`employees/emp_${cleanEmpId}/profile`), {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    mode: 'cors',
+                    body: JSON.stringify({
+                        id: parseInt(cleanEmpId),
+                        name: empName.trim(),
+                        emp_type: empType
+                    })
+                }).catch(() => {});
+
+                console.log(`[Firebase Live] Synced attendance for emp_${cleanEmpId} (${empName}): ${status} on ${dateStr}`);
+                
+                // Visual confirmation ring pulse
+                const ring = document.getElementById('firebasePingRing');
+                if (ring) {
+                    ring.classList.add('bg-emerald-300', 'scale-125');
+                    setTimeout(() => ring.classList.remove('bg-emerald-300', 'scale-125'), 600);
+                }
             }
         } catch (e) {
-            console.debug('Firebase direct sync background note:', e);
+            console.warn('[Firebase Live] Realtime sync note:', e);
+        }
+    }
+
+    async function syncEmployeeToFirebaseClient(empId, empData) {
+        try {
+            const cleanId = String(empId).replace(/^emp_/, '');
+            await fetch(getFbUrl(`employees/emp_${cleanId}/profile`), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                mode: 'cors',
+                body: JSON.stringify(empData)
+            });
+            console.log(`[Firebase Live] Synced new employee emp_${cleanId}`);
+        } catch (e) {
+            console.warn('[Firebase Live] Employee sync error:', e);
+        }
+    }
+
+    async function syncWorkerToFirebaseClient(worker) {
+        try {
+            const cleanId = String(worker.id).replace(/^worker_/, '');
+            await fetch(getFbUrl(`workers/worker_${cleanId}/profile`), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                mode: 'cors',
+                body: JSON.stringify({
+                    id: parseInt(cleanId),
+                    name: worker.name,
+                    role: worker.role || 'Worker',
+                    salary: parseFloat(worker.salary || 0.0),
+                    narration: worker.narration || '',
+                    created_at: new Date().toISOString()
+                })
+            });
+            console.log(`[Firebase Live] Synced new worker worker_${cleanId}`);
+        } catch (e) {
+            console.warn('[Firebase Live] Worker sync error:', e);
+        }
+    }
+
+    async function deleteWorkerFromFirebaseClient(workerId) {
+        try {
+            const cleanId = String(workerId).replace(/^worker_/, '');
+            await fetch(getFbUrl(`workers/worker_${cleanId}`), { method: 'DELETE', mode: 'cors' });
+            console.log(`[Firebase Live] Deleted worker_${cleanId}`);
+        } catch (e) {
+            console.warn('[Firebase Live] Delete worker error:', e);
         }
     }
 
@@ -944,7 +1058,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const rulesAlert = document.getElementById('firebaseRulesAlert');
 
         try {
-            const testUrl = getFbUrl('.json?shallow=true');
+            const testUrl = getFbUrl('?shallow=true');
+
             const fbRes = await fetch(testUrl, { method: 'GET', mode: 'cors' });
             const fbJson = await fbRes.json().catch(() => ({}));
 
@@ -994,6 +1109,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     checkFirebaseStatus();
+
+    // Automatic Live Alignment: if Firebase has no records, auto-sync database to Firebase immediately
+    async function autoSyncDatabaseToFirebaseIfEmpty() {
+        try {
+            const checkUrl = getFbUrl('?shallow=true');
+            const res = await fetch(checkUrl, { mode: 'cors' });
+            if (!res.ok) return;
+            const data = await res.json().catch(() => null);
+
+            // If Firebase root is null, empty object, or has no employees
+            const isFirebaseEmpty = !data || (typeof data === 'object' && Object.keys(data).length === 0) || !data.employees;
+            if (isFirebaseEmpty) {
+                console.log('[Firebase Live] Firebase database has no records. Automatically syncing database to Firebase...');
+                const expRes = await fetch('/api/firebase/export');
+                const expData = await expRes.json();
+                if (expData && expData.success && expData.data) {
+                    const counts = expData.data.metadata.counts;
+                    if (counts.employees > 0) {
+                        const targetUrl = getFbUrl('');
+                        const fbRes = await fetch(targetUrl, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            mode: 'cors',
+                            body: JSON.stringify(expData.data)
+                        });
+                        if (fbRes.ok) {
+                            console.log(`[Firebase Live] Successfully auto-populated ${counts.employees} employees & ${counts.attendance} attendance records in Firebase.`);
+                            checkFirebaseStatus();
+                            showToast(`✓ Database synchronized: ${counts.employees} employees & ${counts.attendance} attendance records populated in Firebase!`, 'success');
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[Firebase Live] Auto-sync check warning:', e);
+        }
+    }
+
+    autoSyncDatabaseToFirebaseIfEmpty();
 
     // Firebase Modal wiring
     const firebaseModal = document.getElementById('firebaseModal');
@@ -1097,11 +1251,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Calendar Navigation & Dynamic Fetching
     function updateDate(newDate) {
         calendarInput.value = newDate;
-        dateDisplayBadge.textContent = newDate;
+        if (calendarDateDisplay) calendarDateDisplay.textContent = toDMY(newDate);
+        if (dateDisplayBadge) dateDisplayBadge.textContent = toDMY(newDate);
         loadAttendanceForDate(newDate);
     }
 
+    // Initialize display with DD/MM/YYYY
+    if (calendarInput && calendarInput.value) {
+        if (calendarDateDisplay) calendarDateDisplay.textContent = toDMY(calendarInput.value);
+        if (dateDisplayBadge) dateDisplayBadge.textContent = toDMY(calendarInput.value);
+    }
+
+    if (calendarDateWrapper && calendarInput) {
+        calendarDateWrapper.addEventListener('click', (e) => {
+            if (e.target !== calendarInput && typeof calendarInput.showPicker === 'function') {
+                try { calendarInput.showPicker(); } catch (err) {}
+            }
+        });
+    }
+
     calendarInput.addEventListener('change', () => updateDate(calendarInput.value));
+
 
     prevDayBtn.addEventListener('click', () => {
         const d = new Date(calendarInput.value || new Date());
@@ -1483,11 +1653,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             if (data.success) {
                 showToast(data.message, 'success');
+                const newId = data.id || data.employee_id || (data.employee && data.employee.id);
+                if (newId) {
+                    await syncEmployeeToFirebaseClient(newId, {
+                        id: parseInt(newId),
+                        name: name,
+                        emp_type: empType,
+                        narration: narration || '',
+                        salary: empType === 'Part Time' ? 1000 : 30000,
+                        created_at: new Date().toISOString()
+                    });
+                }
                 closeAddModal();
-                window.location.href = `/?date=${calendarInput.value}`;
+                setTimeout(() => {
+                    window.location.href = `/?date=${calendarInput.value}`;
+                }, 300);
             } else {
                 showToast(data.message || 'Error adding employee', 'error');
             }
+
         } catch (err) {
             showToast('Network error while adding employee', 'error');
         }
@@ -1524,6 +1708,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             if (data.success) {
                 showToast(data.message, 'success');
+                if (data.worker) {
+                    syncWorkerToFirebaseClient(data.worker);
+                }
                 addWorkerForm.reset();
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-800/40 worker-row';
@@ -1566,6 +1753,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             if (data.success) {
                 showToast(data.message, 'success');
+                deleteWorkerFromFirebaseClient(wid);
                 delBtn.closest('tr').remove();
                 workersCountBadge.textContent = document.querySelectorAll('.worker-row').length;
             }
@@ -1573,6 +1761,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Failed to delete worker', 'error');
         }
     });
+
 
     // 7. Monthly Calendar Modal
     const empCalendarModal = document.getElementById('empCalendarModal');

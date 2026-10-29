@@ -401,5 +401,40 @@ class TestAttendanceApp(unittest.TestCase):
         self.assertEqual(res_sec.status_code, 200)
         self.assertTrue(res_sec.get_json()['hasAuthSecret'])
 
+    def test_database_reset_and_no_fake_seeding(self):
+        """Admin can reset database completely, and init_db does not auto-seed fake records."""
+        import os, tempfile
+        tmp_db = tempfile.NamedTemporaryFile(suffix='.db', delete=False)
+        tmp_db.close()
+        old_path = os.environ.get('ATTENDANCE_DB_PATH')
+        os.environ['ATTENDANCE_DB_PATH'] = tmp_db.name
+        try:
+            init_db()
+            # Add an employee
+            self.client.post('/api/employees', json={'name': 'Temp Worker', 'emp_type': 'Full Day'})
+            
+            # Login and reset
+            self.client.post('/api/admin/login', json={'password': 'attendance'})
+            res = self.client.post('/api/admin/reset-database')
+            self.assertEqual(res.status_code, 200)
+            self.assertTrue(res.get_json()['success'])
+
+            with get_db() as conn:
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM employees").fetchone()[0], 0)
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM workers").fetchone()[0], 0)
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM attendance_records").fetchone()[0], 0)
+
+            # Calling init_db again must NOT auto-insert fake employees
+            init_db()
+            with get_db() as conn:
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM employees").fetchone()[0], 0)
+        finally:
+            if old_path is not None:
+                os.environ['ATTENDANCE_DB_PATH'] = old_path
+            else:
+                os.environ.pop('ATTENDANCE_DB_PATH', None)
+            if os.path.exists(tmp_db.name):
+                os.unlink(tmp_db.name)
+
 if __name__ == '__main__':
     unittest.main()

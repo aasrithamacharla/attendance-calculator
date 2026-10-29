@@ -24,6 +24,23 @@ from firebase_db import (
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'attendance-portal-secret-key-2026-secure')
 
+def to_dmy(val):
+    """Convert YYYY-MM-DD or date object to DD/MM/YYYY."""
+    if not val:
+        return ""
+    if isinstance(val, str):
+        parts = val.strip().split('-')
+        if len(parts) == 3:
+            return f"{parts[2]}/{parts[1]}/{parts[0]}"
+        return val
+    if hasattr(val, 'strftime'):
+        return val.strftime('%d/%m/%Y')
+    return str(val)
+
+@app.template_filter('dmy')
+def dmy_filter(val):
+    return to_dmy(val)
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -33,6 +50,7 @@ def admin_required(f):
             return redirect(url_for('dashboard', admin_modal='1'))
         return f(*args, **kwargs)
     return decorated_function
+
 
 @app.route('/favicon.ico')
 def favicon():
@@ -528,6 +546,20 @@ def bulk_delete_employees():
     return jsonify({
         'success': True,
         'message': f"Successfully deleted {len(emp_ids)} employees."
+    })
+
+@app.route('/api/admin/reset-database', methods=['POST'])
+@admin_required
+def reset_database():
+    with get_db() as conn:
+        conn.execute("DELETE FROM attendance_records")
+        conn.execute("DELETE FROM payroll_payments")
+        conn.execute("DELETE FROM employees")
+        conn.execute("DELETE FROM workers")
+        conn.commit()
+    return jsonify({
+        'success': True,
+        'message': 'Database completely cleared. All records have been removed.'
     })
 
 # 9. Workers Management (Fixed Salary, No Attendance Required)
@@ -1043,8 +1075,20 @@ def sync_to_firebase():
     })
 
 if __name__ == '__main__':
+    import sys
     init_db()
     port = int(os.environ.get('PORT', 5001))
+    if '--port' in sys.argv:
+        try:
+            port = int(sys.argv[sys.argv.index('--port') + 1])
+        except (IndexError, ValueError):
+            pass
+    elif '-p' in sys.argv:
+        try:
+            port = int(sys.argv[sys.argv.index('-p') + 1])
+        except (IndexError, ValueError):
+            pass
+
     print(f"\n==================================================")
     print(f"🚀 Attendance Portal is running at http://127.0.0.1:{port}")
     print(f"🔑 Admin Password: attendance")

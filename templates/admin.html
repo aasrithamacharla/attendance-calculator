@@ -78,6 +78,16 @@
                     <span id="adminFbSyncLabel" class="text-[11px] font-bold text-emerald-400">Sync</span>
                 </button>
 
+                <button 
+                    type="button" 
+                    id="openResetDatabaseModalBtn"
+                    class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/30 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold transition"
+                    title="Clear all records to start fresh from 0 employees"
+                >
+                    <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    <span class="hidden sm:inline">Reset Database</span>
+                </button>
+
                 <a 
                     href="{{ url_for('dashboard') }}"
                     class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700/80 text-slate-200 text-xs font-semibold transition"
@@ -686,7 +696,8 @@
                         {% for item in daily_narrations_log %}
                         <tr class="hover:bg-slate-800/30 transition">
                             <td class="py-3.5 px-4 text-center font-mono text-xs text-slate-500">{{ loop.index }}</td>
-                            <td class="py-3.5 px-4 font-mono text-xs text-brand-300 font-semibold">{{ item.date }}</td>
+                            <td class="py-3.5 px-4 font-mono text-xs text-brand-300 font-semibold">{{ item.date|dmy }}</td>
+
                             <td class="py-3.5 px-4 font-medium text-slate-100">{{ item.employee_name }}</td>
                             <td class="py-3.5 px-4 text-center">
                                 {% if item.status == 'Full Day' %}
@@ -1021,6 +1032,30 @@
         </form>
     </div>
 </div>
+
+<!-- 5. Reset Database Confirmation Modal -->
+<div id="resetDatabaseModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-rose-900/50 rounded-2xl max-w-md w-full shadow-2xl p-6 relative">
+        <div class="flex items-center gap-3 pb-4 border-b border-slate-800">
+            <div class="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-white">Reset Entire Database?</h3>
+                <p class="text-xs text-rose-400">Clear all records from database & frontend</p>
+            </div>
+        </div>
+
+        <p class="text-xs text-slate-300 mt-4 leading-relaxed">
+            This will permanently remove all employees, workers, attendance records, and payments from both the <strong>local database</strong> and <strong>Firebase</strong>. Both the database and frontend will start fresh with <strong>0 records</strong>.
+        </p>
+
+        <div class="flex items-center justify-end gap-3 pt-5 border-t border-slate-800 mt-5">
+            <button type="button" id="cancelResetDatabaseBtn" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition">Cancel</button>
+            <button type="button" id="confirmResetDatabaseBtn" class="px-5 py-2 rounded-xl text-sm font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition">Yes, Clear All Data</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -1285,7 +1320,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         label.textContent = isPaid ? 'Paid' : 'Unpaid';
                         label.className = `pay-status-label text-[11px] font-semibold ${isPaid ? 'text-emerald-400' : 'text-slate-500'}`;
                     }
+                    syncPaymentToFirebaseClient(recipientType, targetId, monthPicker.value, isPaid);
                 } else {
+
                     cb.checked = !isPaid; // revert
                     showToast(data.message || 'Failed to update payment status', 'error');
                 }
@@ -1583,11 +1620,48 @@ document.addEventListener('DOMContentLoaded', () => {
     const fbClientSecret = localStorage.getItem('attendance_fb_secret') || '';
 
     function getAdminFbUrl(path = '') {
-        const clean = path.replace(/^\/+|\/+$/g, '');
+        let clean = (path || '').replace(/^\/+|\/+$/g, '');
+        let query = '';
+        if (clean.includes('?')) {
+            const parts = clean.split('?');
+            clean = parts[0];
+            query = parts[1];
+        }
+        if (clean.endsWith('.json')) {
+            clean = clean.slice(0, -5);
+        }
         let url = clean ? `${FIREBASE_DB_URL}/${clean}.json` : `${FIREBASE_DB_URL}/.json`;
-        if (fbClientSecret) url += `?auth=${encodeURIComponent(fbClientSecret)}`;
+        const params = new URLSearchParams(query);
+        if (fbClientSecret) params.set('auth', fbClientSecret);
+        const qs = params.toString();
+        if (qs) url += `?${qs}`;
         return url;
     }
+
+    async function syncPaymentToFirebaseClient(recipientType, targetId, month, isPaid) {
+        try {
+            const cleanId = String(targetId).replace(/^(emp_|worker_)/, '');
+            const subpath = recipientType === 'employee' 
+                ? `employees/emp_${cleanId}/payroll/${month}` 
+                : `workers/worker_${cleanId}/payroll/${month}`;
+            const url = getAdminFbUrl(subpath);
+            await fetch(url, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                mode: 'cors',
+                body: JSON.stringify({
+                    month: month,
+                    is_paid: Boolean(isPaid),
+                    paid_at: isPaid ? new Date().toISOString() : '',
+                    updated_at: new Date().toISOString()
+                })
+            });
+            console.log(`[Firebase Live] Synced payment status for ${recipientType} ${cleanId} (${month}): ${isPaid ? 'PAID' : 'UNPAID'}`);
+        } catch (e) {
+            console.warn('[Firebase Live] Payment sync error:', e);
+        }
+    }
+
 
     if (adminFirebaseSyncBtn) {
         adminFirebaseSyncBtn.addEventListener('click', async () => {
@@ -1622,6 +1696,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => {
                     if (adminFbSyncLabel) adminFbSyncLabel.textContent = 'Sync';
                 }, 3000);
+            }
+        });
+    }
+
+    // Reset Database wiring
+    const resetModal = document.getElementById('resetDatabaseModal');
+    const openResetBtn = document.getElementById('openResetDatabaseModalBtn');
+    const cancelResetBtn = document.getElementById('cancelResetDatabaseBtn');
+    const confirmResetBtn = document.getElementById('confirmResetDatabaseBtn');
+
+    if (openResetBtn) openResetBtn.addEventListener('click', () => resetModal && resetModal.classList.remove('hidden'));
+    if (cancelResetBtn) cancelResetBtn.addEventListener('click', () => resetModal && resetModal.classList.add('hidden'));
+
+    if (confirmResetBtn) {
+        confirmResetBtn.addEventListener('click', async () => {
+            confirmResetBtn.disabled = true;
+            confirmResetBtn.textContent = 'Clearing records...';
+            try {
+                // 1. Clear local database
+                const apiRes = await fetch('/api/admin/reset-database', { method: 'POST' });
+                const apiData = await apiRes.json();
+                
+                // 2. Clear Firebase Realtime Database
+                try {
+                    const targetUrl = getAdminFbUrl('');
+                    await fetch(targetUrl, { method: 'DELETE', mode: 'cors' });
+                } catch (fbErr) {
+                    console.warn('Firebase wipe error:', fbErr);
+                }
+
+                showToast(apiData.message || 'Database reset successfully.', 'success');
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 800);
+            } catch (err) {
+                showToast('Failed to reset database', 'error');
+                confirmResetBtn.disabled = false;
+                confirmResetBtn.textContent = 'Yes, Clear All Data';
             }
         });
     }
