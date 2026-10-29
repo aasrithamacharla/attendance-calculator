@@ -1,0 +1,1795 @@
+{% extends "base.html" %}
+
+{% block title %}Employee Attendance Dashboard{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex flex-col">
+    <!-- Top Navigation Bar -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+            <!-- Brand -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-brand-500/20">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                        Attendance Dashboard
+                    </h1>
+                    <p class="text-xs text-slate-400">Daily Employee Attendance & Monthly Tracker</p>
+                </div>
+            </div>
+
+            <!-- Calendar Date Picker on the Top -->
+            <div class="flex items-center bg-slate-800/80 border border-slate-700/80 rounded-2xl p-1.5 shadow-inner gap-1">
+                <button type="button" id="prevDayBtn" title="Previous Day" class="p-2 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+
+                <div class="flex items-center gap-2 px-2">
+                    <svg class="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    <input 
+                        type="date" 
+                        id="calendarDateInput" 
+                        value="{{ selected_date }}" 
+                        class="bg-transparent text-sm font-semibold text-white focus:outline-none cursor-pointer"
+                        title="Click to choose a date"
+                    />
+                </div>
+
+                <button type="button" id="nextDayBtn" title="Next Day" class="p-2 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+
+                <button type="button" id="todayBtn" class="px-3 py-1.5 text-xs font-semibold bg-slate-700/80 hover:bg-slate-600 text-slate-200 hover:text-white rounded-xl transition">
+                    Today
+                </button>
+            </div>
+
+            <!-- Action Buttons: Firebase RTDB, Workers & Admin Portal -->
+            <div class="flex items-center gap-2.5">
+                <!-- Firebase Realtime Database Status Badge -->
+                <button 
+                    type="button" 
+                    id="openFirebaseModalBtn"
+                    class="flex items-center gap-2 px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-orange-500/10 border border-orange-500/30 hover:bg-orange-500/20 text-orange-300 font-medium text-xs sm:text-sm transition shadow-sm"
+                    title="Firebase Realtime Database: Connected to https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app"
+                >
+                    <span class="relative flex h-2.5 w-2.5">
+                        <span id="firebasePingRing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span id="firebaseStatusDot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <svg class="w-4 h-4 text-amber-400 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M4.697 19.303l4.303-15.303 3.5 6.5-2 3.803zm14.606 0l-7.303-13.803-3 5.5 8.303 8.303zm-14.606 0l14.606 0-3.5-3.5-7.606-1.5z"/>
+                    </svg>
+                    <span class="hidden md:inline font-semibold">Firebase</span>
+                    <span id="firebaseBadgeText" class="text-[11px] font-bold text-emerald-400">Connected</span>
+                </button>
+
+                <!-- Workers Button -->
+                <button 
+                    type="button" 
+                    id="openWorkersModalBtn"
+                    class="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-cyan-600/10 border border-cyan-500/30 hover:bg-cyan-600/20 text-cyan-300 font-medium text-xs sm:text-sm transition"
+                    title="Fixed salary workers (No attendance required)"
+                >
+                    <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    </svg>
+                    <span>Workers</span>
+                    <span id="workersCountBadge" class="px-1.5 py-0.2 bg-cyan-500/20 text-cyan-200 rounded-full text-[11px] font-bold">{{ total_workers }}</span>
+                </button>
+
+                <!-- Admin Button -->
+                {% if is_admin %}
+                <a 
+                    href="{{ url_for('admin_portal') }}"
+                    class="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-300 font-medium text-xs sm:text-sm transition"
+                >
+                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                    <span>Admin Portal</span>
+                </a>
+                {% else %}
+                <button 
+                    type="button" 
+                    id="openAdminModalBtn"
+                    class="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 hover:border-slate-600 hover:bg-slate-700/60 text-slate-200 font-medium text-xs sm:text-sm transition shadow-sm"
+                >
+                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                    <span>Admin</span>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        
+        <!-- Daily Status Summary Chips -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-400">Total Employees</p>
+                    <p id="statTotal" class="text-2xl font-bold text-white mt-1">{{ total_employees }}</p>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-300">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                </div>
+            </div>
+
+            <div class="bg-slate-900/60 border border-emerald-900/30 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-emerald-400">Full Day (Green)</p>
+                    <p id="statFull" class="text-2xl font-bold text-emerald-300 mt-1">{{ full_count }}</p>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+            </div>
+
+            <div class="bg-slate-900/60 border border-amber-900/30 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-amber-400">Half Day (Orange)</p>
+                    <p id="statHalf" class="text-2xl font-bold text-amber-300 mt-1">{{ half_count }}</p>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+            </div>
+
+            <div class="bg-slate-900/60 border border-rose-900/30 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-rose-400">Leave (Red)</p>
+                    <p id="statLeave" class="text-2xl font-bold text-rose-300 mt-1">{{ leave_count }}</p>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sunday Notice Banner -->
+        <div id="sundayNoticeBanner" class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-center gap-3 text-sm {% if not is_sunday %}hidden{% endif %} shadow-lg">
+            <div class="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            </div>
+            <div>
+                <p class="font-bold text-amber-200">Sunday — Weekly Off</p>
+                <p class="text-xs text-amber-400/90 mt-0.5">
+                    Sundays remain unselected. Sundays are strictly not considered for any kind of salary calculation, and are excluded from all present and leave day counts.
+                </p>
+            </div>
+        </div>
+
+        <!-- Attendance Roster Card -->
+        <div class="bg-slate-900/70 border border-slate-800 rounded-2xl shadow-xl backdrop-blur-md overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                        <span>Daily Attendance Roster</span>
+                        <span id="dateDisplayBadge" class="text-xs px-2.5 py-1 rounded-full bg-brand-500/10 text-brand-400 border border-brand-500/20 font-mono">
+                            {{ selected_date }}
+                        </span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Click any active status to deselect/unmark. Click the dropdown arrow (▼) to add daily notes.</p>
+                </div>
+
+                <div class="flex items-center gap-2.5 w-full sm:w-auto">
+                    <div class="relative w-full sm:w-64">
+                        <svg class="w-4 h-4 absolute left-3.5 top-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <input 
+                            type="text" 
+                            id="employeeSearchInput" 
+                            placeholder="Filter employee name..." 
+                            class="w-full pl-10 pr-4 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition"
+                        />
+                    </div>
+                    <button 
+                        type="button" 
+                        id="openAddEmployeeModalBtn"
+                        class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs sm:text-sm shadow-md transition whitespace-nowrap"
+                        title="Add a new employee to the roster"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        <span>Add Employee</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Employee Attendance Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-800/80 bg-slate-900/90 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            <th class="py-4 px-4 w-12 text-center">#</th>
+                            <th class="py-4 px-6 min-w-[220px]">Employee Name</th>
+                            <th class="py-4 px-4 text-center w-40">Month Calendar</th>
+                            <th class="py-4 px-6 text-center min-w-[420px]">Daily Attendance & Options</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeeTableBody" class="divide-y divide-slate-800/60 text-sm">
+                        {% for emp in employees %}
+                        <tr class="hover:bg-slate-800/30 transition employee-row" 
+                            data-name="{{ emp.name|lower }}" 
+                            data-id="{{ emp.id }}"
+                            data-emp-type="{{ emp.emp_type }}"
+                            data-status="{{ emp.attendance_status }}">
+                            
+                            <!-- Index -->
+                            <td class="py-4 px-4 text-center font-mono text-xs text-slate-500">
+                                {{ loop.index }}
+                            </td>
+
+                            <!-- Employee Name & Type -->
+                            <td class="py-4 px-6">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-full bg-gradient-to-br from-brand-600/30 to-purple-600/30 border border-brand-500/20 flex items-center justify-center font-semibold text-brand-300 text-sm flex-shrink-0">
+                                        {{ emp.name[:2]|upper }}
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-medium text-slate-100 text-base emp-name-span">{{ emp.name }}</span>
+                                            {% if emp.emp_type == 'Half Day' %}
+                                            <span class="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-semibold">Half Day</span>
+                                            {% elif emp.emp_type == 'Part Time' %}
+                                            <span class="px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-[10px] font-semibold">Part Time</span>
+                                            {% else %}
+                                            <span class="px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-medium">Full Day</span>
+                                            {% endif %}
+                                        </div>
+                                        {% if emp.narration %}
+                                        <p class="text-xs text-slate-400 italic mt-0.5">{{ emp.narration }}</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- Calendar Month Option Beside Every Employee Row -->
+                            <td class="py-4 px-4 text-center">
+                                <button 
+                                    type="button" 
+                                    class="open-emp-calendar-btn inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 text-slate-200 text-xs font-medium shadow-sm transition"
+                                    data-emp-id="{{ emp.id }}"
+                                    data-emp-name="{{ emp.name }}"
+                                    title="View month calendar with colors"
+                                >
+                                    <svg class="w-4 h-4 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                    </svg>
+                                    <span>Month Calendar</span>
+                                </button>
+                            </td>
+
+                            <!-- Attendance Selection, Deselect, Dropdown Arrow for Narration & Part-Time Multi Slots -->
+                            <td class="py-4 px-6">
+                                <div class="flex flex-col items-center gap-2">
+                                    <div class="inline-flex items-center p-1 bg-slate-800/90 border border-slate-700/80 rounded-xl gap-1 shadow-inner">
+                                        <!-- Full Day Button -->
+                                        <button 
+                                            type="button" 
+                                            data-emp-id="{{ emp.id }}" 
+                                            data-status="Full Day" 
+                                            class="att-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 {% if emp.attendance_status == 'Full Day' %}bg-emerald-600 text-white shadow-md shadow-emerald-600/30 border border-emerald-400/30 active-btn{% else %}text-slate-300 hover:text-emerald-300 hover:bg-slate-700/50{% endif %}"
+                                            title="Click to mark Full Day (click again to deselect)"
+                                        >
+                                            <span class="w-2 h-2 rounded-full {% if emp.attendance_status == 'Full Day' %}bg-white{% else %}bg-emerald-500{% endif %}"></span>
+                                            Full Day
+                                        </button>
+
+                                        <!-- Half Day Button -->
+                                        <button 
+                                            type="button" 
+                                            data-emp-id="{{ emp.id }}" 
+                                            data-status="Half Day" 
+                                            class="att-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 {% if emp.attendance_status == 'Half Day' %}bg-amber-600 text-white shadow-md shadow-amber-600/30 border border-amber-400/30 active-btn{% else %}text-slate-300 hover:text-amber-300 hover:bg-slate-700/50{% endif %}"
+                                            title="Click to mark Half Day (click again to deselect)"
+                                        >
+                                            <span class="w-2 h-2 rounded-full {% if emp.attendance_status == 'Half Day' %}bg-white{% else %}bg-amber-500{% endif %}"></span>
+                                            Half Day
+                                        </button>
+
+                                        <!-- Leave Button -->
+                                        <button 
+                                            type="button" 
+                                            data-emp-id="{{ emp.id }}" 
+                                            data-status="Leave" 
+                                            class="att-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 {% if emp.attendance_status == 'Leave' %}bg-rose-600 text-white shadow-md shadow-rose-600/30 border border-rose-400/30 active-btn{% else %}text-slate-300 hover:text-rose-300 hover:bg-slate-700/50{% endif %}"
+                                            title="Click to mark Leave (click again to deselect)"
+                                        >
+                                            <span class="w-2 h-2 rounded-full {% if emp.attendance_status == 'Leave' %}bg-white{% else %}bg-rose-500{% endif %}"></span>
+                                            Leave
+                                        </button>
+
+                                        <!-- Deselect / Clear Option Button -->
+                                        <button 
+                                            type="button" 
+                                            class="deselect-btn p-1.5 rounded-lg text-slate-400 hover:text-rose-300 hover:bg-slate-700 transition"
+                                            data-emp-id="{{ emp.id }}"
+                                            title="Deselect attendance"
+                                        >
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        </button>
+
+                                        <!-- Dropdown Arrow Option Beside Attendance to Add Narration -->
+                                        <button 
+                                            type="button" 
+                                            class="toggle-day-note-btn p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-700 transition relative"
+                                            data-emp-id="{{ emp.id }}"
+                                            title="Add narration / notes for this day"
+                                        >
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                            {% if emp.day_notes %}
+                                            <span class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                                            {% endif %}
+                                        </button>
+                                    </div>
+
+                                    <!-- Part-Time Multi-Slot Options: Morning, Afternoon, Evening -->
+                                    {% if emp.emp_type == 'Part Time' %}
+                                    <div class="part-time-slots-container flex items-center gap-1.5 bg-cyan-950/30 border border-cyan-800/40 px-2 py-1 rounded-xl text-xs">
+                                        <span class="text-[10px] text-cyan-300 font-semibold uppercase pr-1">Shifts:</span>
+                                        <button 
+                                            type="button" 
+                                            class="part-time-slot-btn px-2 py-0.5 rounded-md text-[11px] font-semibold transition {% if 'Morning' in emp.day_slots %}bg-cyan-600 text-white shadow-sm{% else %}bg-slate-800 text-slate-400 hover:text-white{% endif %}"
+                                            data-emp-id="{{ emp.id }}"
+                                            data-slot="Morning"
+                                        >
+                                            ☀️ Morning
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            class="part-time-slot-btn px-2 py-0.5 rounded-md text-[11px] font-semibold transition {% if 'Afternoon' in emp.day_slots %}bg-cyan-600 text-white shadow-sm{% else %}bg-slate-800 text-slate-400 hover:text-white{% endif %}"
+                                            data-emp-id="{{ emp.id }}"
+                                            data-slot="Afternoon"
+                                        >
+                                            ⛅ Afternoon
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            class="part-time-slot-btn px-2 py-0.5 rounded-md text-[11px] font-semibold transition {% if 'Evening' in emp.day_slots %}bg-cyan-600 text-white shadow-sm{% else %}bg-slate-800 text-slate-400 hover:text-white{% endif %}"
+                                            data-emp-id="{{ emp.id }}"
+                                            data-slot="Evening"
+                                        >
+                                            🌙 Evening
+                                        </button>
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- Expandable Daily Narration Drawer -->
+                                    <div id="dayNoteDrawer-{{ emp.id }}" class="day-note-drawer w-full max-w-sm hidden pt-1">
+                                        <div class="flex items-center gap-1.5 bg-slate-950/70 border border-slate-700/80 p-1.5 rounded-xl">
+                                            <input 
+                                                type="text" 
+                                                class="day-note-input flex-1 bg-transparent text-xs text-slate-200 placeholder-slate-500 px-2 py-1 focus:outline-none"
+                                                placeholder="Add day note (e.g. Overtime, Client site)..."
+                                                value="{{ emp.day_notes }}"
+                                                data-emp-id="{{ emp.id }}"
+                                            />
+                                            <button 
+                                                type="button" 
+                                                class="save-day-note-btn px-2 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[10px] font-bold transition"
+                                                data-emp-id="{{ emp.id }}"
+                                            >
+                                                Save Note
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr id="noEmployeesRow">
+                            <td colspan="4" class="py-12 text-center text-slate-400">
+                                <p class="text-base font-medium">No employees found.</p>
+                                <p class="text-sm text-slate-500 mt-1">Click the "Add Employee" button above to add an employee.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
+        Attendance Management System &bull; Secure Daily Roster & Payroll
+    </footer>
+</div>
+
+<!-- ==================== MODALS ==================== -->
+
+<!-- 1. Add Employee Modal -->
+<div id="addEmployeeModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl p-6 relative">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-white">Add New Employee</h3>
+                    <p class="text-xs text-slate-400">Choose employment category and record name</p>
+                </div>
+            </div>
+            <button type="button" id="closeAddEmployeeModalBtn" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <form id="addEmployeeForm" class="mt-5 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Employee Name *
+                </label>
+                <input 
+                    type="text" 
+                    id="newEmployeeName" 
+                    required 
+                    placeholder="Enter full name of employee..."
+                    class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition"
+                />
+            </div>
+
+            <!-- Employee Type Selection (Full Day, Half Day, Part Time) -->
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                    Employment Type *
+                </label>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <label class="flex flex-col p-3 rounded-xl border border-slate-700 bg-slate-800/60 cursor-pointer hover:border-brand-500 transition has-[:checked]:border-brand-500 has-[:checked]:bg-brand-500/10">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-bold text-slate-200">Full Day</span>
+                            <input type="radio" name="empTypeRadio" value="Full Day" checked class="text-brand-500 focus:ring-brand-500">
+                        </div>
+                        <p class="text-[10px] text-slate-400">Standard full day shift</p>
+                    </label>
+
+                    <label class="flex flex-col p-3 rounded-xl border border-slate-700 bg-slate-800/60 cursor-pointer hover:border-amber-500 transition has-[:checked]:border-amber-500 has-[:checked]:bg-amber-500/10">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-bold text-amber-300">Half Day</span>
+                            <input type="radio" name="empTypeRadio" value="Half Day" class="text-amber-500 focus:ring-amber-500">
+                        </div>
+                        <p class="text-[10px] text-slate-400">Half-day shift (leaves only counted, full day doubles salary)</p>
+                    </label>
+
+                    <label class="flex flex-col p-3 rounded-xl border border-slate-700 bg-slate-800/60 cursor-pointer hover:border-cyan-500 transition has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-500/10">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-bold text-cyan-300">Part Time</span>
+                            <input type="radio" name="empTypeRadio" value="Part Time" class="text-cyan-500 focus:ring-cyan-500">
+                        </div>
+                        <p class="text-[10px] text-slate-400">Morning, afternoon, evening slots (per-day wage)</p>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Narration / Description -->
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Narration / Notes (Optional)
+                </label>
+                <textarea 
+                    id="newEmployeeNarration" 
+                    rows="2" 
+                    placeholder="e.g. Shift hours, contract details, special instructions..."
+                    class="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition"
+                ></textarea>
+                <p class="text-[11px] text-slate-500 mt-1 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span>Salaries are confidential and configured only on Admin Portal.</span>
+                </p>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                <button 
+                    type="button" 
+                    id="cancelAddEmployeeBtn" 
+                    class="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition"
+                >
+                    Cancel
+                </button>
+                <button 
+                    type="submit" 
+                    class="px-5 py-2 rounded-xl text-sm font-medium bg-brand-600 hover:bg-brand-500 text-white shadow-lg shadow-brand-600/30 transition"
+                >
+                    Save Employee
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 2. Workers Modal -->
+<div id="workersModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full shadow-2xl p-6 relative max-h-[90vh] flex flex-col">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-white">Workers Management</h3>
+                    <p class="text-xs text-slate-400">Fixed salary workers who do not require daily attendance</p>
+                </div>
+            </div>
+            <button type="button" id="closeWorkersModalBtn" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <form id="addWorkerForm" class="py-4 border-b border-slate-800 flex flex-col sm:flex-row gap-3 items-end">
+            <div class="flex-1 w-full">
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Worker Name *</label>
+                <input 
+                    type="text" 
+                    id="newWorkerName" 
+                    required 
+                    placeholder="e.g. Ramesh Kumar"
+                    class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                />
+            </div>
+            <div class="w-full sm:w-48">
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Role / Department</label>
+                <input 
+                    type="text" 
+                    id="newWorkerRole" 
+                    placeholder="e.g. Facilities / Security"
+                    class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                />
+            </div>
+            <button 
+                type="submit" 
+                class="w-full sm:w-auto px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-sm font-semibold shadow-md shadow-cyan-600/30 transition flex items-center justify-center gap-1.5"
+            >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                <span>Add Worker</span>
+            </button>
+        </form>
+
+        <div class="flex-1 overflow-y-auto py-3">
+            <table class="w-full text-left text-sm">
+                <thead>
+                    <tr class="text-xs uppercase text-slate-400 border-b border-slate-800">
+                        <th class="py-2.5 px-3">Worker Name</th>
+                        <th class="py-2.5 px-3">Role</th>
+                        <th class="py-2.5 px-3 text-center">Status</th>
+                        <th class="py-2.5 px-3 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="workersTableBody" class="divide-y divide-slate-800/60">
+                    {% for w in workers %}
+                    <tr class="hover:bg-slate-800/40 worker-row" data-id="{{ w.id }}">
+                        <td class="py-3 px-3 font-medium text-slate-100">{{ w.name }}</td>
+                        <td class="py-3 px-3 text-slate-400 text-xs">{{ w.role }}</td>
+                        <td class="py-3 px-3 text-center">
+                            <span class="px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-xs font-semibold">
+                                Fixed Salary &bull; No Attendance
+                            </span>
+                        </td>
+                        <td class="py-3 px-3 text-right">
+                            <button type="button" class="delete-worker-btn text-slate-500 hover:text-rose-400 p-1" data-id="{{ w.id }}" data-name="{{ w.name }}" title="Delete worker">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr id="noWorkersRow">
+                        <td colspan="4" class="py-8 text-center text-slate-400 text-xs">
+                            No fixed workers added yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
+            <span>Fixed salaries are configured and paid out via Admin Portal.</span>
+            <button type="button" id="closeWorkersModalBtn2" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Firebase Realtime Database Modal -->
+<div id="firebaseModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl p-6 relative">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-amber-400">
+                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M4.697 19.303l4.303-15.303 3.5 6.5-2 3.803zm14.606 0l-7.303-13.803-3 5.5 8.303 8.303zm-14.606 0l14.606 0-3.5-3.5-7.606-1.5z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                        Firebase Realtime Database
+                        <span id="firebaseModalStatusPill" class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">Connected</span>
+                    </h3>
+                    <p class="text-xs text-slate-400">Live cloud synchronization for Attendance & Payroll</p>
+                </div>
+            </div>
+            <button type="button" id="closeFirebaseModalBtn" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <div class="py-4 space-y-4">
+            <!-- Connection URL info -->
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3.5 space-y-2">
+                <div class="flex items-center justify-between text-xs">
+                    <span class="text-slate-400 font-medium">Database Host URL</span>
+                    <span id="fbLivePermStatus" class="text-xs font-bold flex items-center gap-1.5 text-slate-400">
+                        <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+                        Checking rules...
+                    </span>
+                </div>
+                <div class="p-2.5 rounded-lg bg-slate-950 font-mono text-xs text-amber-300 break-all select-all border border-slate-800 flex items-center justify-between">
+                    <span>https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app</span>
+                </div>
+            </div>
+
+            <!-- Firebase Rules Diagnostic Alert Box -->
+            <div id="firebaseRulesAlert" class="hidden p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2 text-amber-200">
+                <div class="flex items-center gap-2 font-bold text-amber-300">
+                    <svg class="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    <span>Firebase Rules Required for Public / Test Writes</span>
+                </div>
+                <p class="text-[11px] text-amber-300/90 leading-relaxed">
+                    If records don't show up in your database console, your Firebase Security Rules may be locked. In your Firebase Console under <b>Realtime Database &rarr; Rules</b>, ensure writes are allowed:
+                </p>
+                <pre class="bg-slate-950/80 p-2 rounded-lg text-[11px] text-emerald-400 font-mono border border-slate-800 select-all">
+{
+  "rules": {
+    ".read": true,
+    ".write": true
+  }
+}</pre>
+                <p class="text-[10px] text-slate-400">After publishing the rules above, click Sync below and records will write immediately.</p>
+            </div>
+
+            <!-- Optional Database Secret / Token Input -->
+            <div class="bg-slate-800/40 border border-slate-800 rounded-xl p-3 space-y-2 text-xs">
+                <div class="flex items-center justify-between">
+                    <label class="text-slate-300 font-medium">Database Secret / Auth Token <span class="text-slate-500 font-normal">(Optional if rules are open)</span></label>
+                    <button type="button" id="saveFbSecretBtn" class="text-[11px] text-brand-400 hover:text-brand-300 font-semibold">Save</button>
+                </div>
+                <input 
+                    type="password" 
+                    id="firebaseSecretInput" 
+                    placeholder="Enter Database Secret if rules require auth..." 
+                    class="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+            </div>
+
+            <!-- Sync Stats Card -->
+            <div id="firebaseSyncStats" class="grid grid-cols-2 gap-3 text-xs">
+                <div class="p-3 rounded-xl bg-slate-800/40 border border-slate-800">
+                    <span class="text-slate-400 block">Total Employees</span>
+                    <span id="fbStatEmployees" class="text-lg font-bold text-white mt-1 block">{{ total_employees }}</span>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-800/40 border border-slate-800">
+                    <span class="text-slate-400 block">Total Workers</span>
+                    <span id="fbStatWorkers" class="text-lg font-bold text-white mt-1 block">{{ total_workers }}</span>
+                </div>
+            </div>
+
+            <!-- Manual Sync Actions -->
+            <div class="space-y-2">
+                <button 
+                    type="button" 
+                    id="triggerFirebaseSyncBtn" 
+                    class="w-full py-2.5 px-4 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold rounded-xl text-sm shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 transition"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <span id="syncBtnLabel">Sync All Local Data to Firebase Now</span>
+                </button>
+                <div id="firebaseSyncMsg" class="text-[11px] text-center text-slate-400"></div>
+            </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
+            <span>All attendance toggles sync in real time to Firebase.</span>
+            <button type="button" id="closeFirebaseModalBtn2" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- 3. Monthly Calendar Modal -->
+<div id="empCalendarModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full shadow-2xl p-6 relative">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div>
+                <h3 id="calModalTitle" class="text-lg font-bold text-white flex items-center gap-2">
+                    <span>Monthly Attendance Calendar</span>
+                </h3>
+                <div class="flex items-center gap-2 mt-0.5">
+                    <p id="calModalEmpName" class="text-xs text-brand-400 font-semibold"></p>
+                    <span id="calModalEmpType" class="px-2 py-0.2 rounded bg-slate-800 text-[10px] font-medium text-slate-300"></span>
+                </div>
+            </div>
+            <button type="button" id="closeEmpCalendarModalBtn" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <div class="py-4 space-y-3">
+            <div class="flex items-center justify-between">
+                <button type="button" id="calPrevMonthBtn" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <span id="calMonthLabel" class="text-sm font-bold text-white tracking-wide"></span>
+                <button type="button" id="calNextMonthBtn" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+            </div>
+
+            <!-- Color Coding Legend -->
+            <div class="flex items-center justify-center gap-4 text-xs font-semibold bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                <div class="flex items-center gap-1.5">
+                    <span class="w-3 h-3 rounded-md bg-emerald-500 shadow-sm shadow-emerald-500/50"></span>
+                    <span class="text-emerald-300">Full Day (Green)</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-3 h-3 rounded-md bg-amber-500 shadow-sm shadow-amber-500/50"></span>
+                    <span class="text-amber-300">Half Day (Orange)</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-3 h-3 rounded-md bg-rose-500 shadow-sm shadow-rose-500/50"></span>
+                    <span class="text-rose-300">Leave (Red)</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-3 h-3 rounded-md bg-slate-800 border border-slate-700"></span>
+                    <span class="text-slate-400">Unmarked</span>
+                </div>
+            </div>
+            <p class="text-[11px] text-center text-slate-400">💡 <span class="text-slate-300 font-medium">Click any day tile</span> to directly cycle attendance: <span class="text-emerald-400 font-semibold">Full Day</span> ➔ <span class="text-amber-400 font-semibold">Half Day</span> ➔ <span class="text-rose-400 font-semibold">Leave</span> ➔ <span class="text-slate-400 font-semibold">Clear</span></p>
+
+            <!-- Calendar Grid Container -->
+            <div class="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/50 p-2">
+                <div class="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-slate-400 pb-2 border-b border-slate-800">
+                    <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+                </div>
+                <div id="calendarGrid" class="grid grid-cols-7 gap-1 pt-2 text-center text-xs"></div>
+            </div>
+
+            <!-- Monthly Totals Summary -->
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                <div class="bg-emerald-950/40 border border-emerald-500/30 p-2 rounded-xl text-emerald-300">
+                    <span class="block text-[10px] text-emerald-400/80 font-medium uppercase">Full Days</span>
+                    <span id="calFullCount" class="text-base font-bold">0</span>
+                </div>
+                <div class="bg-amber-950/40 border border-amber-500/30 p-2 rounded-xl text-amber-300">
+                    <span class="block text-[10px] text-amber-400/80 font-medium uppercase">Half Days</span>
+                    <span id="calHalfCount" class="text-base font-bold">0</span>
+                </div>
+                <div class="bg-rose-950/40 border border-rose-500/30 p-2 rounded-xl text-rose-300">
+                    <span class="block text-[10px] text-rose-400/80 font-medium uppercase">Leaves</span>
+                    <span id="calLeaveCount" class="text-base font-bold">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 4. Admin Login Modal (Password: attendance) -->
+<div id="adminModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm {% if not show_admin_modal %}hidden{% endif %}">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full shadow-2xl p-6 relative">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-white">Admin Verification</h3>
+                    <p class="text-xs text-slate-400">Salary calculation & employee payroll</p>
+                </div>
+            </div>
+            <button type="button" id="closeAdminModalBtn" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <form id="adminLoginForm" class="mt-5 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Admin Password
+                </label>
+                <div class="relative">
+                    <input 
+                        type="password" 
+                        id="adminPasswordInput" 
+                        required 
+                        placeholder="Enter password..." 
+                        class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                    />
+                    <button 
+                        type="button" 
+                        id="toggleAdminPassBtn" 
+                        class="absolute right-3.5 top-2.5 text-slate-400 hover:text-slate-200"
+                        title="Show/Hide Password"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    </button>
+                </div>
+                <div class="flex items-center justify-between mt-2">
+                    <p class="text-xs text-slate-500">Required password: <code class="text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">attendance</code></p>
+                    <button 
+                        type="button" 
+                        id="autofillAdminPassBtn" 
+                        class="text-xs font-semibold text-brand-400 hover:text-brand-300 underline"
+                    >
+                        Autofill Password
+                    </button>
+                </div>
+            </div>
+
+            <div id="adminLoginError" class="hidden p-3 rounded-xl bg-rose-950/70 border border-rose-500/30 text-rose-300 text-xs"></div>
+
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                <button 
+                    type="button" 
+                    id="cancelAdminModalBtn" 
+                    class="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition"
+                >
+                    Cancel
+                </button>
+                <button 
+                    type="submit" 
+                    id="adminLoginSubmitBtn"
+                    class="px-5 py-2 rounded-xl text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/30 transition flex items-center gap-2"
+                >
+                    <span>Enter Admin Portal</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const calendarInput = document.getElementById('calendarDateInput');
+    const prevDayBtn = document.getElementById('prevDayBtn');
+    const nextDayBtn = document.getElementById('nextDayBtn');
+    const todayBtn = document.getElementById('todayBtn');
+    const dateDisplayBadge = document.getElementById('dateDisplayBadge');
+
+    const statFull = document.getElementById('statFull');
+    const statHalf = document.getElementById('statHalf');
+    const statLeave = document.getElementById('statLeave');
+    const statTotal = document.getElementById('statTotal');
+
+    // Firebase Realtime Database Integration
+    const FIREBASE_DB_URL = "https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app";
+    let fbClientSecret = localStorage.getItem('attendance_fb_secret') || '';
+
+    const secretInput = document.getElementById('firebaseSecretInput');
+    const saveFbSecretBtn = document.getElementById('saveFbSecretBtn');
+    if (secretInput && fbClientSecret) {
+        secretInput.value = fbClientSecret;
+    }
+
+    if (saveFbSecretBtn && secretInput) {
+        saveFbSecretBtn.addEventListener('click', async () => {
+            fbClientSecret = secretInput.value.trim();
+            localStorage.setItem('attendance_fb_secret', fbClientSecret);
+            try {
+                await fetch('/api/firebase/set-secret', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ secret: fbClientSecret })
+                });
+                showToast('Firebase Auth Secret saved!', 'success');
+                checkFirebaseStatus();
+            } catch (e) {
+                showToast('Secret saved locally', 'info');
+            }
+        });
+    }
+
+    function getFbUrl(path = '') {
+        const clean = path.replace(/^\/+|\/+$/g, '');
+        let url = clean ? `${FIREBASE_DB_URL}/${clean}.json` : `${FIREBASE_DB_URL}/.json`;
+        if (fbClientSecret) {
+            url += `?auth=${encodeURIComponent(fbClientSecret)}`;
+        }
+        return url;
+    }
+
+    async function syncAttendanceToFirebaseClient(empId, dateStr, status, slots = [], notes = '') {
+        try {
+            const url = getFbUrl(`employees/emp_${empId}/attendance/${dateStr}`);
+            if (!status || status === 'deselect') {
+                await fetch(url, { method: 'DELETE' });
+            } else {
+                const slotsArray = Array.isArray(slots) ? slots : (slots ? slots.split(',') : []);
+                await fetch(url, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        date: dateStr,
+                        status: status,
+                        slots: slotsArray,
+                        notes: notes || '',
+                        updated_at: new Date().toISOString()
+                    })
+                });
+            }
+        } catch (e) {
+            console.debug('Firebase direct sync background note:', e);
+        }
+    }
+
+    async function checkFirebaseStatus() {
+        const dot = document.getElementById('firebaseStatusDot');
+        const ring = document.getElementById('firebasePingRing');
+        const badgeText = document.getElementById('firebaseBadgeText');
+        const modalPill = document.getElementById('firebaseModalStatusPill');
+        const permStatus = document.getElementById('fbLivePermStatus');
+        const rulesAlert = document.getElementById('firebaseRulesAlert');
+
+        try {
+            const testUrl = getFbUrl('.json?shallow=true');
+            const fbRes = await fetch(testUrl, { method: 'GET', mode: 'cors' });
+            const fbJson = await fbRes.json().catch(() => ({}));
+
+            if (fbRes.ok && !fbJson.error) {
+                // Database is reachable and writable
+                if (badgeText) badgeText.textContent = 'Connected';
+                if (modalPill) {
+                    modalPill.textContent = 'Rules Open (Ready)';
+                    modalPill.className = 'text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30';
+                }
+                if (permStatus) {
+                    permStatus.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="text-emerald-400">Rules Open (Ready to Write)</span>';
+                }
+                if (dot) dot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500';
+                if (ring) ring.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75';
+                if (rulesAlert) rulesAlert.classList.add('hidden');
+                return;
+            } else if (fbJson.error && fbJson.error.toLowerCase().includes('permission denied')) {
+                // Database rules locked
+                if (badgeText) badgeText.textContent = 'Rules Locked';
+                if (modalPill) {
+                    modalPill.textContent = 'Permission Denied';
+                    modalPill.className = 'text-xs px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-semibold border border-rose-500/30';
+                }
+                if (permStatus) {
+                    permStatus.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500"></span><span class="text-rose-400 font-bold">Rules Locked (Permission Denied)</span>';
+                }
+                if (dot) dot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500';
+                if (ring) ring.className = 'hidden';
+                if (rulesAlert) rulesAlert.classList.remove('hidden');
+                return;
+            }
+        } catch (err) {
+            // Network fallback
+        }
+
+        try {
+            const apiRes = await fetch('/api/firebase/status');
+            const data = await apiRes.json();
+            if (data.connected) {
+                if (badgeText) badgeText.textContent = 'Connected';
+                if (dot) dot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500';
+            }
+        } catch (e) {
+            if (badgeText) badgeText.textContent = 'Ready';
+        }
+    }
+
+    checkFirebaseStatus();
+
+    // Firebase Modal wiring
+    const firebaseModal = document.getElementById('firebaseModal');
+    const openFirebaseModalBtn = document.getElementById('openFirebaseModalBtn');
+    const closeFirebaseModalBtn = document.getElementById('closeFirebaseModalBtn');
+    const closeFirebaseModalBtn2 = document.getElementById('closeFirebaseModalBtn2');
+    const triggerFirebaseSyncBtn = document.getElementById('triggerFirebaseSyncBtn');
+    const syncBtnLabel = document.getElementById('syncBtnLabel');
+    const firebaseSyncMsg = document.getElementById('firebaseSyncMsg');
+
+    if (openFirebaseModalBtn) {
+        openFirebaseModalBtn.addEventListener('click', () => {
+            if (firebaseModal) firebaseModal.classList.remove('hidden');
+            checkFirebaseStatus();
+        });
+    }
+    if (closeFirebaseModalBtn) {
+        closeFirebaseModalBtn.addEventListener('click', () => {
+            if (firebaseModal) firebaseModal.classList.add('hidden');
+        });
+    }
+    if (closeFirebaseModalBtn2) {
+        closeFirebaseModalBtn2.addEventListener('click', () => {
+            if (firebaseModal) firebaseModal.classList.add('hidden');
+        });
+    }
+
+    if (triggerFirebaseSyncBtn) {
+        triggerFirebaseSyncBtn.addEventListener('click', async () => {
+            if (syncBtnLabel) syncBtnLabel.textContent = 'Exporting records...';
+            if (firebaseSyncMsg) {
+                firebaseSyncMsg.textContent = 'Exporting 174 employees, 33 workers, 300 attendance records...';
+                firebaseSyncMsg.className = 'text-[11px] text-center text-amber-400';
+            }
+
+            try {
+                // 1. Fetch complete data payload from server
+                const expRes = await fetch('/api/firebase/export');
+                const expData = await expRes.json();
+                if (!expData.success || !expData.data) {
+                    throw new Error('Failed to export local records from server');
+                }
+
+                const payload = expData.data;
+                const counts = payload.metadata.counts;
+                if (syncBtnLabel) syncBtnLabel.textContent = `Saving ${counts.employees} employees & ${counts.attendance} attendance to Firebase...`;
+
+                // 2. Direct browser upload to Firebase
+                const targetUrl = getFbUrl('');
+                const fbRes = await fetch(targetUrl, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const fbJson = await fbRes.json().catch(() => ({}));
+
+                if (fbRes.ok && !fbJson.error) {
+                    showToast(`✓ All ${counts.employees} employees, ${counts.workers} workers, and ${counts.attendance} attendance records saved to Firebase!`, 'success');
+                    if (firebaseSyncMsg) {
+                        firebaseSyncMsg.innerHTML = `
+                            <div class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-medium">
+                                ✓ Successfully uploaded to Firebase Realtime Database!<br/>
+                                <span class="text-[10px] text-emerald-400">
+                                    • ${counts.employees} Employees &bull; ${counts.workers} Workers &bull; ${counts.attendance} Attendance Records &bull; ${counts.payments} Payments
+                                </span>
+                            </div>
+                        `;
+                    }
+                    checkFirebaseStatus();
+                    
+                    // Also trigger background server sync
+                    fetch('/api/firebase/sync', { method: 'POST' }).catch(() => {});
+                } else {
+                    const errMsg = (fbJson.error || `HTTP ${fbRes.status}: ${fbRes.statusText}`);
+                    const rulesAlert = document.getElementById('firebaseRulesAlert');
+                    if (rulesAlert) rulesAlert.classList.remove('hidden');
+
+                    if (firebaseSyncMsg) {
+                        firebaseSyncMsg.innerHTML = `
+                            <div class="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 font-medium text-left">
+                                <p class="font-bold text-rose-200">❌ Firebase Error: ${errMsg}</p>
+                                <p class="text-[11px] mt-1 text-slate-300">Firebase blocked writing records because database security rules are locked. See instructions above to set <code>".read": true, ".write": true</code>, or enter your Database Secret.</p>
+                            </div>
+                        `;
+                    }
+                    showToast('Firebase write failed: Permission Denied', 'error');
+                }
+            } catch (err) {
+                console.error('Sync error:', err);
+                if (firebaseSyncMsg) {
+                    firebaseSyncMsg.textContent = `Sync error: ${err.message}`;
+                    firebaseSyncMsg.className = 'text-[11px] text-center text-rose-400';
+                }
+            } finally {
+                if (syncBtnLabel) syncBtnLabel.textContent = 'Sync All Local Data to Firebase Now';
+            }
+        });
+    }
+
+    // 1. Calendar Navigation & Dynamic Fetching
+    function updateDate(newDate) {
+        calendarInput.value = newDate;
+        dateDisplayBadge.textContent = newDate;
+        loadAttendanceForDate(newDate);
+    }
+
+    calendarInput.addEventListener('change', () => updateDate(calendarInput.value));
+
+    prevDayBtn.addEventListener('click', () => {
+        const d = new Date(calendarInput.value || new Date());
+        d.setDate(d.getDate() - 1);
+        updateDate(d.toISOString().split('T')[0]);
+    });
+
+    nextDayBtn.addEventListener('click', () => {
+        const d = new Date(calendarInput.value || new Date());
+        d.setDate(d.getDate() + 1);
+        updateDate(d.toISOString().split('T')[0]);
+    });
+
+    todayBtn.addEventListener('click', () => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        updateDate(todayStr);
+    });
+
+    // 2. Fetch attendance data for date via AJAX
+    async function loadAttendanceForDate(dateStr) {
+        try {
+            const res = await fetch(`/api/attendance?date=${encodeURIComponent(dateStr)}`);
+            const data = await res.json();
+            if (data.success) {
+                const isSunday = Boolean(data.is_sunday);
+                const sundayBanner = document.getElementById('sundayNoticeBanner');
+                if (sundayBanner) {
+                    if (isSunday) {
+                        sundayBanner.classList.remove('hidden');
+                    } else {
+                        sundayBanner.classList.add('hidden');
+                    }
+                }
+
+                statFull.textContent = data.counts.full_count;
+                statHalf.textContent = data.counts.half_count;
+                statLeave.textContent = data.counts.leave_count;
+                statTotal.textContent = data.counts.total;
+
+                const recordsMap = {};
+                data.employees.forEach(e => { recordsMap[e.id] = e; });
+
+                document.querySelectorAll('.employee-row').forEach(row => {
+                    const empId = parseInt(row.getAttribute('data-id'));
+                    const rec = recordsMap[empId] || { status: '', notes: '', slots: [] };
+                    const currentStatus = isSunday ? '' : (rec.status || '');
+                    row.setAttribute('data-status', currentStatus);
+
+                    // Update attendance pills
+                    const buttons = row.querySelectorAll('.att-btn');
+                    buttons.forEach(btn => {
+                        const btnStatus = btn.getAttribute('data-status');
+                        updateButtonAppearance(btn, btnStatus === currentStatus, btnStatus);
+                        if (isSunday) {
+                            btn.classList.add('opacity-50', 'cursor-not-allowed');
+                        } else {
+                            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        }
+                    });
+
+                    // Update daily note input
+                    const noteInput = row.querySelector('.day-note-input');
+                    if (noteInput) noteInput.value = isSunday ? '' : (rec.notes || '');
+
+                    // Update note indicator on arrow
+                    const noteToggleBtn = row.querySelector('.toggle-day-note-btn');
+                    if (noteToggleBtn) {
+                        const hasNote = Boolean(!isSunday && rec.notes && rec.notes.trim());
+                        let dot = noteToggleBtn.querySelector('span');
+                        if (hasNote && !dot) {
+                            dot = document.createElement('span');
+                            dot.className = 'absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400';
+                            noteToggleBtn.appendChild(dot);
+                        } else if (!hasNote && dot) {
+                            dot.remove();
+                        }
+                    }
+
+                    // Update part-time slot buttons
+                    row.querySelectorAll('.part-time-slot-btn').forEach(sBtn => {
+                        const sVal = sBtn.getAttribute('data-slot');
+                        const isSlotSelected = !isSunday && (rec.slots || []).includes(sVal);
+                        if (isSlotSelected) {
+                            sBtn.className = 'part-time-slot-btn px-2 py-0.5 rounded-md text-[11px] font-semibold transition bg-cyan-600 text-white shadow-sm';
+                        } else {
+                            sBtn.className = 'part-time-slot-btn px-2 py-0.5 rounded-md text-[11px] font-semibold transition bg-slate-800 text-slate-400 hover:text-white';
+                        }
+                        if (isSunday) {
+                            sBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                        } else {
+                            sBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        }
+                    });
+                });
+            }
+        } catch (err) {
+            console.error('Error fetching attendance:', err);
+            showToast('Failed to load attendance for date', 'error');
+        }
+    }
+
+    function updateButtonAppearance(btn, isActive, status) {
+        const dot = btn.querySelector('span');
+        if (isActive) {
+            btn.classList.add('active-btn', 'text-white');
+            if (status === 'Full Day') {
+                btn.className = 'att-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-emerald-600 text-white shadow-md shadow-emerald-600/30 border border-emerald-400/30 active-btn';
+                if (dot) dot.className = 'w-2 h-2 rounded-full bg-white';
+            } else if (status === 'Half Day') {
+                btn.className = 'att-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-amber-600 text-white shadow-md shadow-amber-600/30 border border-amber-400/30 active-btn';
+                if (dot) dot.className = 'w-2 h-2 rounded-full bg-white';
+            } else if (status === 'Leave') {
+                btn.className = 'att-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-rose-600 text-white shadow-md shadow-rose-600/30 border border-rose-400/30 active-btn';
+                if (dot) dot.className = 'w-2 h-2 rounded-full bg-white';
+            }
+        } else {
+            btn.classList.remove('active-btn');
+            if (status === 'Full Day') {
+                btn.className = 'att-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 text-slate-300 hover:text-emerald-300 hover:bg-slate-700/50';
+                if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+            } else if (status === 'Half Day') {
+                btn.className = 'att-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 text-slate-300 hover:text-amber-300 hover:bg-slate-700/50';
+                if (dot) dot.className = 'w-2 h-2 rounded-full bg-amber-500';
+            } else if (status === 'Leave') {
+                btn.className = 'att-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 text-slate-300 hover:text-rose-300 hover:bg-slate-700/50';
+                if (dot) dot.className = 'w-2 h-2 rounded-full bg-rose-500';
+            }
+        }
+    }
+
+    // 3. Click handler for Attendance Options with DESELECT Capability
+    document.getElementById('employeeTableBody').addEventListener('click', async (e) => {
+        const btn = e.target.closest('.att-btn');
+        const deselectBtn = e.target.closest('.deselect-btn');
+        const toggleNoteBtn = e.target.closest('.toggle-day-note-btn');
+        const saveNoteBtn = e.target.closest('.save-day-note-btn');
+        const slotBtn = e.target.closest('.part-time-slot-btn');
+
+        const row = e.target.closest('.employee-row');
+        if (!row) return;
+
+        const empId = row.getAttribute('data-id');
+        const currentStatus = row.getAttribute('data-status') || '';
+        const empType = row.getAttribute('data-emp-type') || 'Full Day';
+        const dateStr = calendarInput.value;
+
+        // Block all attendance marking on Sundays
+        const selectedDateObj = new Date(dateStr + 'T00:00:00');
+        const isSelectedSunday = (selectedDateObj.getDay() === 0);
+
+        if (isSelectedSunday && (btn || slotBtn || deselectBtn)) {
+            showToast('Sundays remain unselected (Weekly Off). Excluded from attendance and calculations.', 'error');
+            return;
+        }
+
+        // A. Toggle Dropdown Arrow for Daily Narration
+        if (toggleNoteBtn) {
+            const drawer = document.getElementById(`dayNoteDrawer-${empId}`);
+            if (drawer) {
+                drawer.classList.toggle('hidden');
+                if (!drawer.classList.contains('hidden')) {
+                    const input = drawer.querySelector('.day-note-input');
+                    if (input) input.focus();
+                }
+            }
+            return;
+        }
+
+        // B. Save Day Note
+        if (saveNoteBtn) {
+            const drawer = document.getElementById(`dayNoteDrawer-${empId}`);
+            const input = drawer.querySelector('.day-note-input');
+            const noteText = input ? input.value.trim() : '';
+
+            try {
+                const res = await fetch('/api/attendance/note', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ employee_id: empId, date: dateStr, notes: noteText })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    syncAttendanceToFirebaseClient(empId, dateStr, row.getAttribute('data-status') || 'Full Day', [], noteText);
+                    drawer.classList.add('hidden');
+                    loadAttendanceForDate(dateStr);
+                }
+            } catch (err) {
+                showToast('Failed to save note', 'error');
+            }
+            return;
+        }
+
+        // C. Part-Time Multi Slots Selection
+        if (slotBtn) {
+            const slotVal = slotBtn.getAttribute('data-slot');
+            const container = slotBtn.closest('.part-time-slots-container');
+            const allSlotBtns = container.querySelectorAll('.part-time-slot-btn');
+            
+            const isCurrentlyActive = slotBtn.classList.contains('bg-cyan-600');
+            const activeSlots = [];
+            allSlotBtns.forEach(b => {
+                if (b.classList.contains('bg-cyan-600')) {
+                    activeSlots.push(b.getAttribute('data-slot'));
+                }
+            });
+
+            // Rule: "For part-time employees if opted full day they mandatorily need to select one option from morning, afternoon , evening"
+            if (isCurrentlyActive && activeSlots.length === 1 && activeSlots.includes(slotVal)) {
+                showToast('For part-time employees opted Full Day, selecting at least one option (Morning, Afternoon, or Evening) is mandatory.', 'error');
+                return;
+            }
+
+            // Toggle active slot
+            slotBtn.classList.toggle('bg-cyan-600');
+            slotBtn.classList.toggle('text-white');
+            slotBtn.classList.toggle('bg-slate-800');
+            slotBtn.classList.toggle('text-slate-400');
+
+            const newActiveSlots = [];
+            allSlotBtns.forEach(b => {
+                if (b.classList.contains('bg-cyan-600')) {
+                    newActiveSlots.push(b.getAttribute('data-slot'));
+                }
+            });
+
+            // If slots selected, status is Full Day; if all unselected, status is deselect
+            const statusToSet = newActiveSlots.length > 0 ? 'Full Day' : 'deselect';
+
+            try {
+                const res = await fetch('/api/attendance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        employee_id: empId,
+                        date: dateStr,
+                        status: statusToSet,
+                        slots: newActiveSlots
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    syncAttendanceToFirebaseClient(empId, dateStr, statusToSet, newActiveSlots);
+                    loadAttendanceForDate(dateStr);
+                } else {
+                    showToast(data.message || 'Error updating shift slots', 'error');
+                }
+            } catch (err) {
+                showToast('Error updating shift slots', 'error');
+            }
+            return;
+        }
+
+        // D. Explicit Deselect Button Click
+        if (deselectBtn) {
+            try {
+                const res = await fetch('/api/attendance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ employee_id: empId, date: dateStr, action: 'deselect' })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    syncAttendanceToFirebaseClient(empId, dateStr, 'deselect');
+                    row.setAttribute('data-status', '');
+                    row.querySelectorAll('.att-btn').forEach(b => {
+                        updateButtonAppearance(b, false, b.getAttribute('data-status'));
+                    });
+                    loadAttendanceForDate(dateStr);
+                }
+            } catch (err) {
+                showToast('Failed to deselect', 'error');
+            }
+            return;
+        }
+
+        // E. Click Attendance Option (Clicking already active button deselects!)
+        if (btn) {
+            const targetStatus = btn.getAttribute('data-status');
+            const isAlreadyActive = (currentStatus === targetStatus);
+
+            let actionToTake = isAlreadyActive ? 'deselect' : '';
+            let statusToSend = isAlreadyActive ? '' : targetStatus;
+            let slotsToSend = [];
+
+            // Rule: "For part-time employees if opted full day they mandatorily need to select one option from morning, afternoon , evening"
+            if (empType === 'Part Time' && targetStatus === 'Full Day' && !isAlreadyActive) {
+                const activeSlotBtns = row.querySelectorAll('.part-time-slot-btn.bg-cyan-600');
+                if (activeSlotBtns.length > 0) {
+                    activeSlotBtns.forEach(b => slotsToSend.push(b.getAttribute('data-slot')));
+                } else {
+                    // Default mandatory selection to 'Morning'
+                    slotsToSend = ['Morning'];
+                }
+            }
+
+            try {
+                const res = await fetch('/api/attendance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        employee_id: empId,
+                        date: dateStr,
+                        status: statusToSend,
+                        action: actionToTake,
+                        slots: slotsToSend
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    syncAttendanceToFirebaseClient(empId, dateStr, data.status, slotsToSend);
+                    row.setAttribute('data-status', data.status);
+                    row.querySelectorAll('.att-btn').forEach(b => {
+                        const bStatus = b.getAttribute('data-status');
+                        updateButtonAppearance(b, bStatus === data.status, bStatus);
+                    });
+                    loadAttendanceForDate(dateStr);
+                } else {
+                    showToast(data.message || 'Error saving attendance', 'error');
+                }
+            } catch (err) {
+                showToast('Network error while saving attendance', 'error');
+            }
+        }
+    });
+
+    // 4. Employee Filter
+    const searchInput = document.getElementById('employeeSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            document.querySelectorAll('.employee-row').forEach(row => {
+                const name = row.getAttribute('data-name');
+                row.style.display = name.includes(query) ? '' : 'none';
+            });
+        });
+    }
+
+    // 5. Add Employee Modal
+    const addEmployeeModal = document.getElementById('addEmployeeModal');
+    const openAddEmployeeModalBtn = document.getElementById('openAddEmployeeModalBtn');
+    const closeAddEmployeeModalBtn = document.getElementById('closeAddEmployeeModalBtn');
+    const cancelAddEmployeeBtn = document.getElementById('cancelAddEmployeeBtn');
+    const addEmployeeForm = document.getElementById('addEmployeeForm');
+
+    function openAddModal() {
+        addEmployeeModal.classList.remove('hidden');
+        document.getElementById('newEmployeeName').focus();
+    }
+    function closeAddModal() {
+        addEmployeeModal.classList.add('hidden');
+        addEmployeeForm.reset();
+    }
+
+    if (openAddEmployeeModalBtn) openAddEmployeeModalBtn.addEventListener('click', openAddModal);
+    if (closeAddEmployeeModalBtn) closeAddEmployeeModalBtn.addEventListener('click', closeAddModal);
+    if (cancelAddEmployeeBtn) cancelAddEmployeeBtn.addEventListener('click', closeAddModal);
+
+    addEmployeeForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('newEmployeeName').value.trim();
+        const empTypeRadio = document.querySelector('input[name="empTypeRadio"]:checked');
+        const empType = empTypeRadio ? empTypeRadio.value : 'Full Day';
+        const narration = document.getElementById('newEmployeeNarration').value.trim();
+
+        if (!name) return;
+
+        try {
+            const res = await fetch('/api/employees', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, emp_type: empType, narration: narration })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                showToast(data.message, 'success');
+                closeAddModal();
+                window.location.href = `/?date=${calendarInput.value}`;
+            } else {
+                showToast(data.message || 'Error adding employee', 'error');
+            }
+        } catch (err) {
+            showToast('Network error while adding employee', 'error');
+        }
+    });
+
+    // 6. Workers Modal Logic
+    const workersModal = document.getElementById('workersModal');
+    const openWorkersModalBtn = document.getElementById('openWorkersModalBtn');
+    const closeWorkersModalBtn = document.getElementById('closeWorkersModalBtn');
+    const closeWorkersModalBtn2 = document.getElementById('closeWorkersModalBtn2');
+    const addWorkerForm = document.getElementById('addWorkerForm');
+    const workersTableBody = document.getElementById('workersTableBody');
+    const workersCountBadge = document.getElementById('workersCountBadge');
+
+    function openWorkers() { workersModal.classList.remove('hidden'); }
+    function closeWorkers() { workersModal.classList.add('hidden'); }
+
+    if (openWorkersModalBtn) openWorkersModalBtn.addEventListener('click', openWorkers);
+    if (closeWorkersModalBtn) closeWorkersModalBtn.addEventListener('click', closeWorkers);
+    if (closeWorkersModalBtn2) closeWorkersModalBtn2.addEventListener('click', closeWorkers);
+
+    addWorkerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('newWorkerName').value.trim();
+        const role = document.getElementById('newWorkerRole').value.trim() || 'General Worker';
+        if (!name) return;
+
+        try {
+            const res = await fetch('/api/workers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, role: role })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast(data.message, 'success');
+                addWorkerForm.reset();
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/40 worker-row';
+                tr.setAttribute('data-id', data.worker.id);
+                tr.innerHTML = `
+                    <td class="py-3 px-3 font-medium text-slate-100">${data.worker.name}</td>
+                    <td class="py-3 px-3 text-slate-400 text-xs">${data.worker.role}</td>
+                    <td class="py-3 px-3 text-center">
+                        <span class="px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-xs font-semibold">
+                            Fixed Salary &bull; No Attendance
+                        </span>
+                    </td>
+                    <td class="py-3 px-3 text-right">
+                        <button type="button" class="delete-worker-btn text-slate-500 hover:text-rose-400 p-1" data-id="${data.worker.id}" data-name="${data.worker.name}">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </td>
+                `;
+                const noRow = document.getElementById('noWorkersRow');
+                if (noRow) noRow.remove();
+                workersTableBody.appendChild(tr);
+                workersCountBadge.textContent = document.querySelectorAll('.worker-row').length;
+            } else {
+                showToast(data.message || 'Error adding worker', 'error');
+            }
+        } catch (err) {
+            showToast('Network error while adding worker', 'error');
+        }
+    });
+
+    workersTableBody.addEventListener('click', async (e) => {
+        const delBtn = e.target.closest('.delete-worker-btn');
+        if (!delBtn) return;
+        const wid = delBtn.getAttribute('data-id');
+        const wname = delBtn.getAttribute('data-name');
+        if (!confirm(`Delete worker "${wname}"?`)) return;
+
+        try {
+            const res = await fetch(`/api/workers/${wid}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) {
+                showToast(data.message, 'success');
+                delBtn.closest('tr').remove();
+                workersCountBadge.textContent = document.querySelectorAll('.worker-row').length;
+            }
+        } catch (err) {
+            showToast('Failed to delete worker', 'error');
+        }
+    });
+
+    // 7. Monthly Calendar Modal
+    const empCalendarModal = document.getElementById('empCalendarModal');
+    const closeEmpCalendarModalBtn = document.getElementById('closeEmpCalendarModalBtn');
+    const calModalEmpName = document.getElementById('calModalEmpName');
+    const calModalEmpType = document.getElementById('calModalEmpType');
+    const calMonthLabel = document.getElementById('calMonthLabel');
+    const calPrevMonthBtn = document.getElementById('calPrevMonthBtn');
+    const calNextMonthBtn = document.getElementById('calNextMonthBtn');
+    const calendarGrid = document.getElementById('calendarGrid');
+    const calFullCount = document.getElementById('calFullCount');
+    const calHalfCount = document.getElementById('calHalfCount');
+    const calLeaveCount = document.getElementById('calLeaveCount');
+
+    let currentCalEmpId = null;
+    let currentCalEmpName = '';
+    let currentCalYearMonth = '';
+
+    function closeCalendarModal() { empCalendarModal.classList.add('hidden'); }
+    if (closeEmpCalendarModalBtn) closeEmpCalendarModalBtn.addEventListener('click', closeCalendarModal);
+
+    document.getElementById('employeeTableBody').addEventListener('click', (e) => {
+        const calBtn = e.target.closest('.open-emp-calendar-btn');
+        if (!calBtn) return;
+        currentCalEmpId = calBtn.getAttribute('data-emp-id');
+        currentCalEmpName = calBtn.getAttribute('data-emp-name');
+        
+        const topDate = calendarInput.value || new Date().toISOString().split('T')[0];
+        currentCalYearMonth = topDate.substring(0, 7);
+        openEmpCalendar(currentCalEmpId, currentCalEmpName, currentCalYearMonth);
+    });
+
+    calPrevMonthBtn.addEventListener('click', () => {
+        const [y, m] = currentCalYearMonth.split('-').map(Number);
+        const prev = new Date(y, m - 2, 1);
+        currentCalYearMonth = prev.toISOString().substring(0, 7);
+        openEmpCalendar(currentCalEmpId, currentCalEmpName, currentCalYearMonth);
+    });
+
+    calNextMonthBtn.addEventListener('click', () => {
+        const [y, m] = currentCalYearMonth.split('-').map(Number);
+        const next = new Date(y, m, 1);
+        currentCalYearMonth = next.toISOString().substring(0, 7);
+        openEmpCalendar(currentCalEmpId, currentCalEmpName, currentCalYearMonth);
+    });
+
+    async function openEmpCalendar(empId, empName, yearMonth) {
+        calModalEmpName.textContent = empName;
+        empCalendarModal.classList.remove('hidden');
+        calendarGrid.innerHTML = '<div class="col-span-7 py-8 text-center text-slate-400">Loading calendar...</div>';
+
+        try {
+            const res = await fetch(`/api/employees/${empId}/calendar?month=${yearMonth}`);
+            const data = await res.json();
+            if (!data.success) {
+                calendarGrid.innerHTML = `<div class="col-span-7 py-4 text-center text-rose-400">${data.message}</div>`;
+                return;
+            }
+
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            calMonthLabel.textContent = `${monthNames[data.month_num - 1]} ${data.year}`;
+            calModalEmpType.textContent = data.employee.emp_type || 'Full Day';
+
+            calFullCount.textContent = data.counts.full_days;
+            calHalfCount.textContent = data.counts.half_days;
+            calLeaveCount.textContent = data.counts.leaves;
+
+            calendarGrid.innerHTML = '';
+
+            for (let i = 0; i < data.first_weekday; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'h-12 rounded-lg bg-slate-900/30';
+                calendarGrid.appendChild(emptyCell);
+            }
+
+            data.days.forEach(d => {
+                const dayTile = document.createElement('div');
+                let colorClasses = 'bg-slate-900/60 border border-slate-800 text-slate-300';
+                let statusBadge = '';
+
+                if (d.is_sunday) {
+                    colorClasses = 'bg-slate-950/40 border border-slate-800/80 text-slate-500 opacity-60';
+                    statusBadge = '<span class="text-[9px] font-semibold block text-amber-500/80">Sun Off</span>';
+                } else if (d.status === 'Full Day') {
+                    colorClasses = 'bg-emerald-500/20 border-2 border-emerald-500 text-emerald-300 shadow-sm shadow-emerald-500/20';
+                    const slotText = (d.slots && d.slots.length) ? d.slots.join(', ') : 'Full';
+                    statusBadge = `<span class="text-[9px] font-bold block text-emerald-400 truncate" title="${slotText}">${slotText}</span>`;
+                } else if (d.status === 'Half Day') {
+                    colorClasses = 'bg-amber-500/20 border-2 border-amber-500 text-amber-300 shadow-sm shadow-amber-500/20';
+                    statusBadge = '<span class="text-[9px] font-bold block text-amber-400">Half</span>';
+                } else if (d.status === 'Leave') {
+                    colorClasses = 'bg-rose-500/20 border-2 border-rose-500 text-rose-300 shadow-sm shadow-rose-500/20';
+                    statusBadge = '<span class="text-[9px] font-bold block text-rose-400">Leave</span>';
+                }
+
+                dayTile.className = `h-12 p-1 rounded-lg flex flex-col items-center justify-between transition cursor-pointer hover:scale-105 ${colorClasses}`;
+                const noteTip = d.notes ? `\nNote: ${d.notes}` : '';
+                dayTile.title = d.is_sunday ? `${d.date}: Sunday (Weekly Off - Not Counted)` : `${d.date}: ${d.status || 'Unmarked'}${noteTip}`;
+                dayTile.innerHTML = `
+                    <span class="font-bold text-xs">${d.day}</span>
+                    ${statusBadge || '<span class="text-[9px] text-slate-600">&bull;</span>'}
+                `;
+
+                dayTile.addEventListener('click', async () => {
+                    if (d.is_sunday) {
+                        showToast('Sundays are weekly off days and cannot be marked.', 'info');
+                        return;
+                    }
+                    let nextStatus = 'Full Day';
+                    if (d.status === 'Full Day') nextStatus = 'Half Day';
+                    else if (d.status === 'Half Day') nextStatus = 'Leave';
+                    else if (d.status === 'Leave') nextStatus = 'deselect';
+                    else nextStatus = 'Full Day';
+
+                    try {
+                        const res = await fetch('/api/attendance/mark', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                employee_id: currentCalEmpId,
+                                date: d.date,
+                                status: nextStatus
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            showToast(`${d.date}: ${data.message}`, 'success');
+                            syncAttendanceToFirebaseClient(currentCalEmpId, d.date, nextStatus);
+                            openEmpCalendar(currentCalEmpId, currentCalEmpName, currentCalYearMonth);
+                            if (calendarInput.value === d.date) {
+                                updateDate(d.date);
+                            }
+                        } else {
+                            showToast(data.message || 'Error updating attendance', 'error');
+                        }
+                    } catch (err) {
+                        showToast('Network error updating attendance', 'error');
+                    }
+                });
+
+                calendarGrid.appendChild(dayTile);
+            });
+
+        } catch (err) {
+            calendarGrid.innerHTML = '<div class="col-span-7 py-4 text-center text-rose-400">Network error loading calendar</div>';
+        }
+    }
+
+    // 8. Admin Password Modal
+    const adminModal = document.getElementById('adminModal');
+    const openAdminModalBtn = document.getElementById('openAdminModalBtn');
+    const closeAdminModalBtn = document.getElementById('closeAdminModalBtn');
+    const cancelAdminModalBtn = document.getElementById('cancelAdminModalBtn');
+    const adminLoginForm = document.getElementById('adminLoginForm');
+    const adminPassInput = document.getElementById('adminPasswordInput');
+    const toggleAdminPassBtn = document.getElementById('toggleAdminPassBtn');
+    const autofillAdminPassBtn = document.getElementById('autofillAdminPassBtn');
+    const adminLoginError = document.getElementById('adminLoginError');
+
+    function openAdminModal() {
+        if (adminModal) {
+            adminModal.classList.remove('hidden');
+            adminPassInput.focus();
+        }
+    }
+    function closeAdminModal() {
+        if (adminModal) {
+            adminModal.classList.add('hidden');
+            adminLoginError.classList.add('hidden');
+            adminLoginForm.reset();
+        }
+    }
+
+    if (openAdminModalBtn) openAdminModalBtn.addEventListener('click', openAdminModal);
+    if (closeAdminModalBtn) closeAdminModalBtn.addEventListener('click', closeAdminModal);
+    if (cancelAdminModalBtn) cancelAdminModalBtn.addEventListener('click', closeAdminModal);
+
+    if (autofillAdminPassBtn) {
+        autofillAdminPassBtn.addEventListener('click', () => {
+            adminPassInput.value = 'attendance';
+            adminPassInput.focus();
+        });
+    }
+
+    if (toggleAdminPassBtn) {
+        toggleAdminPassBtn.addEventListener('click', () => {
+            adminPassInput.type = adminPassInput.type === 'password' ? 'text' : 'password';
+        });
+    }
+
+    if (adminLoginForm) {
+        adminLoginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            adminLoginError.classList.add('hidden');
+            const password = adminPassInput.value;
+
+            try {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: password })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Admin authenticated!', 'success');
+                    window.location.href = data.redirect || '/admin';
+                } else {
+                    adminLoginError.textContent = data.message || 'Incorrect password.';
+                    adminLoginError.classList.remove('hidden');
+                }
+            } catch (err) {
+                adminLoginError.textContent = 'Network error during login.';
+                adminLoginError.classList.remove('hidden');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

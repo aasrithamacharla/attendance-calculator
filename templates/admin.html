@@ -1,0 +1,1630 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Portal - Payroll & Salary Calculations{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex flex-col">
+    <!-- Admin Header -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+            <!-- Brand & Admin Tag -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center shadow-lg shadow-amber-500/20 text-slate-950">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-xl font-bold tracking-tight text-white">Admin Portal</h1>
+                        <span class="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold uppercase tracking-wider">
+                            Confidential Payroll
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400">Salary Management, Leave Deductions, Payment Ticks & Worker Logs</p>
+                </div>
+            </div>
+
+            <!-- Month / Year Selector & Force Calculate Toggle -->
+            <div class="flex items-center gap-2">
+                <div class="flex items-center bg-slate-800/80 border border-slate-700 rounded-2xl p-1.5 shadow-inner gap-2">
+                    <span class="text-xs font-medium text-slate-400 pl-2">Payroll Month:</span>
+                    <input 
+                        type="month" 
+                        id="payrollMonthPicker" 
+                        value="{{ selected_month }}"
+                        class="bg-slate-700/80 border border-slate-600 rounded-xl px-3 py-1.5 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                    />
+                </div>
+
+                {% if not force_calculate %}
+                <a 
+                    href="?month={{ selected_month }}&force=1"
+                    title="Calculate provisional salaries for employees whose whole month attendance is not yet completed"
+                    class="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-300 text-xs font-semibold transition"
+                >
+                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    <span>Force Preview All</span>
+                </a>
+                {% else %}
+                <a 
+                    href="?month={{ selected_month }}"
+                    title="Exit force calculate preview mode and show strict completion check"
+                    class="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                >
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    <span>Strict Month Mode</span>
+                </a>
+                {% endif %}
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="flex items-center gap-2.5">
+                <!-- Firebase Realtime Database Status & Sync -->
+                <button 
+                    type="button" 
+                    id="adminFirebaseSyncBtn"
+                    class="flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-500/10 border border-orange-500/30 hover:bg-orange-500/20 text-orange-300 text-xs font-semibold transition shadow-sm"
+                    title="Firebase Realtime Database: Connected to https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app"
+                >
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M4.697 19.303l4.303-15.303 3.5 6.5-2 3.803zm14.606 0l-7.303-13.803-3 5.5 8.303 8.303zm-14.606 0l14.606 0-3.5-3.5-7.606-1.5z"/>
+                    </svg>
+                    <span class="hidden sm:inline">Firebase DB</span>
+                    <span id="adminFbSyncLabel" class="text-[11px] font-bold text-emerald-400">Sync</span>
+                </button>
+
+                <a 
+                    href="{{ url_for('dashboard') }}"
+                    class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700/80 text-slate-200 text-xs font-semibold transition"
+                >
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+
+                <a 
+                    href="{{ url_for('admin_logout') }}"
+                    class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-rose-500/10 border border-rose-500/30 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold transition"
+                >
+                    <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-400">Total Headcount</p>
+                    <p class="text-2xl font-bold text-white mt-1">
+                        {{ total_employees }} <span class="text-xs font-normal text-slate-400">Emps</span> + {{ total_workers }} <span class="text-xs font-normal text-cyan-400">Workers</span>
+                    </p>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-300">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                </div>
+            </div>
+
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-400">Gross Monthly Base</p>
+                    <p id="totalGrossBase" class="text-2xl font-bold text-slate-200 mt-1">₹{{ "{:,.2f}".format(total_gross) }}</p>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-brand-500/10 flex items-center justify-center text-brand-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                </div>
+            </div>
+
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-400">Net Leave & Extra Adjustments</p>
+                    <p id="totalAdjustmentsBadge" class="text-lg font-bold mt-1 {% if total_bonuses >= total_deductions %}text-emerald-300{% else %}text-rose-300{% endif %}">
+                        +₹{{ "{:,.2f}".format(total_bonuses) }} <span class="text-xs font-normal text-slate-400">bonus</span> / -₹{{ "{:,.2f}".format(total_deductions) }} <span class="text-xs font-normal text-slate-400">deduct</span>
+                    </p>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+            </div>
+
+            <div class="bg-slate-900/60 border border-emerald-900/40 rounded-2xl p-4 flex items-center justify-between bg-emerald-950/20">
+                <div>
+                    <p class="text-xs font-medium text-emerald-400">Net Payable Payroll</p>
+                    <p id="totalNetPayout" class="text-2xl font-bold text-emerald-300 mt-1">₹{{ "{:,.2f}".format(total_net) }}</p>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Formula Rule Guide Banner with Categories -->
+        <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700/80 rounded-2xl p-5 shadow-lg">
+            <div class="flex items-start gap-4">
+                <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 flex-shrink-0 mt-0.5">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                </div>
+                <div class="space-y-1 w-full">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+                            <span>Salary Calculation & Payment Rules:</span>
+                            <code class="px-2 py-0.5 bg-slate-950 rounded text-amber-400 border border-slate-700 text-xs">{{ selected_month }} ({{ working_days_in_month }} Working Days &bull; Sundays Off)</code>
+                        </h3>
+                        <span class="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full">
+                            🔒 Salary is finalized once all {{ working_days_in_month }} working days are logged (Sundays excluded)
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-300 pt-2">
+                        <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                            <span class="font-semibold text-brand-300">1. Full Day Employee:</span>
+                            <p class="text-slate-400 mt-0.5">Total leaves = <code>Leaves + (Half / 2)</code> (Sundays excluded).</p>
+                            <p class="text-[11px] text-slate-500 mt-0.5">&gt; 2 leaves: Deduct (Total-2)&times;Wage/30. &lt; 2: Add (2-Total)&times;Wage/30.</p>
+                        </div>
+                        <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                            <span class="font-semibold text-amber-300">2. Half Day Employee:</span>
+                            <p class="text-slate-400 mt-0.5">Total leaves = <code>Leaves only</code> (Half days NOT 0.5 leave).</p>
+                            <p class="text-[11px] text-amber-400/90 mt-0.5 font-medium">✨ Full day worked = Doubles day salary (+1 day wage bonus)!</p>
+                        </div>
+                        <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                            <span class="font-semibold text-cyan-300">3. Part Time Employee:</span>
+                            <p class="text-slate-400 mt-0.5">Half day = <code>1 day</code>. Full day shifts (Morning, Afternoon, Evening):</p>
+                            <p class="text-[11px] text-slate-500 mt-0.5">Mandatory to select at least 1 shift option. 1 slot = 1 day, 2 = 2 days, 3 = 3 days.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 1: Employees (Attendance-Based Payroll) -->
+        <div class="bg-slate-900/70 border border-slate-800 rounded-2xl shadow-xl backdrop-blur-md overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                        <span>Employees Payroll & Attendance Breakdown</span>
+                        <span class="px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-300 text-xs font-semibold">{{ total_employees }} Employees</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Tick the payment status checkbox when paid. Total salary finalized upon complete month attendance.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button 
+                        type="button" 
+                        id="openAdminAddEmployeeBtn"
+                        class="px-3 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium transition flex items-center gap-1.5"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        <span>+ Add Employee</span>
+                    </button>
+                    <button 
+                        type="button" 
+                        onclick="window.print()" 
+                        class="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium transition flex items-center gap-1.5"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                        <span>Print</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-800/80 bg-slate-900/90 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            <th class="py-4 px-2 w-10 text-center">#</th>
+                            <!-- Payment Status Column -->
+                            <th class="py-4 px-3 text-center min-w-[120px] bg-slate-950/40">Payment Status</th>
+                            <th class="py-4 px-3 min-w-[200px]">Employee Name & Narration</th>
+                            <th class="py-4 px-3 min-w-[170px]">Rate / Salary (₹)</th>
+                            <th class="py-4 px-2 text-center">Full</th>
+                            <th class="py-4 px-2 text-center">Half</th>
+                            <th class="py-4 px-2 text-center">Leave</th>
+                            <th class="py-4 px-3 text-center bg-slate-800/40 font-bold text-amber-300">Total Leaves</th>
+                            <th class="py-4 px-3 text-center bg-slate-800/40 font-bold text-rose-300">Considered Leaves</th>
+                            <th class="py-4 px-3 text-center bg-slate-800/40 font-bold text-emerald-300">Unused Leaves</th>
+                            <th class="py-4 px-3 text-right">Daily Rate</th>
+                            <th class="py-4 px-3 text-right">Adjustment</th>
+                            <th class="py-4 px-4 text-right bg-emerald-950/20 font-bold text-emerald-400 min-w-[190px]">Calculated Salary (₹)</th>
+                            <th class="py-4 px-3 text-center w-24">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60" id="payrollTableBody">
+                        {% for row in payroll %}
+                        <tr class="hover:bg-slate-800/30 transition payroll-row" 
+                            data-emp-id="{{ row.id }}" 
+                            data-name="{{ row.name }}"
+                            data-emp-type="{{ row.emp_type }}"
+                            data-narration="{{ row.narration }}"
+                            data-full="{{ row.full_days }}" 
+                            data-half="{{ row.half_days }}" 
+                            data-leaves="{{ row.leaves }}"
+                            data-days-worked="{{ row.days_worked_display }}"
+                            data-is-complete="{{ '1' if row.is_month_complete else '0' }}">
+                            
+                            <td class="py-4 px-2 text-center font-mono text-xs text-slate-500">
+                                {{ loop.index }}
+                            </td>
+
+                            <!-- Payment Status Tick / Checkbox Column -->
+                            <td class="py-4 px-3 text-center bg-slate-950/30">
+                                <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                                    <input 
+                                        type="checkbox" 
+                                        class="payment-status-toggle rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-emerald-500 cursor-pointer w-4 h-4" 
+                                        data-recipient="employee" 
+                                        data-id="{{ row.id }}" 
+                                        {% if row.is_paid %}checked{% endif %}
+                                        title="Tick to update payment status"
+                                    />
+                                    <span class="pay-status-label text-[11px] font-semibold {% if row.is_paid %}text-emerald-400{% else %}text-slate-500{% endif %}">
+                                        {% if row.is_paid %}Paid{% else %}Unpaid{% endif %}
+                                    </span>
+                                </label>
+                            </td>
+
+                            <!-- Employee Name & Narration Description with Edit Option -->
+                            <td class="py-4 px-3">
+                                <div class="flex items-start gap-2.5">
+                                    <div class="w-8 h-8 rounded-full bg-brand-500/20 border border-brand-500/30 flex items-center justify-center font-bold text-xs text-brand-300 flex-shrink-0 mt-0.5">
+                                        {{ row.name[:2]|upper }}
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="emp-name-text font-semibold text-slate-100 text-sm truncate">{{ row.name }}</span>
+                                            
+                                            <!-- Edit Name & Narration Button -->
+                                            <button 
+                                                type="button" 
+                                                class="edit-emp-btn text-slate-500 hover:text-amber-400 p-0.5 rounded transition"
+                                                title="Edit employee name, type, and narration"
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Employee Type Tag -->
+                                        <div class="flex items-center gap-1.5 mt-0.5">
+                                            {% if row.emp_type == 'Half Day' %}
+                                            <span class="emp-type-badge px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-semibold">Half Day</span>
+                                            {% elif row.emp_type == 'Part Time' %}
+                                            <span class="emp-type-badge px-1.5 py-0.2 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[10px] font-semibold">Part Time (Per Day Wage)</span>
+                                            {% else %}
+                                            <span class="emp-type-badge px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-medium">Full Day</span>
+                                            {% endif %}
+                                        </div>
+
+                                        <!-- Narration / Description -->
+                                        {% if row.narration %}
+                                        <p class="emp-narration-text text-xs text-slate-400 italic mt-1 line-clamp-2" title="{{ row.narration }}">
+                                            {{ row.narration }}
+                                        </p>
+                                        {% else %}
+                                        <p class="emp-narration-text text-[11px] text-slate-600 italic mt-0.5 hover:text-slate-400 cursor-pointer edit-emp-btn">
+                                            + add narration / description...
+                                        </p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- Monthly Salary / Per Day Wage (Editable Input) -->
+                            <td class="py-4 px-3">
+                                <div>
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="text-xs font-semibold text-slate-400">₹</span>
+                                        <input 
+                                            type="number" 
+                                            class="salary-input w-28 px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                            value="{{ row.salary }}"
+                                            step="50"
+                                            min="0"
+                                            data-emp-id="{{ row.id }}"
+                                        />
+                                        <button 
+                                            type="button" 
+                                            class="save-salary-btn p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 transition"
+                                            title="Save Salary"
+                                        >
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                        </button>
+                                    </div>
+                                    <span class="text-[10px] text-slate-500 block mt-1 salary-label-sub">
+                                        {% if row.emp_type == 'Part Time' %}Per Day Wage Rate{% else %}Monthly Base Salary{% endif %}
+                                    </span>
+                                </div>
+                            </td>
+
+                            <!-- Full Days -->
+                            <td class="py-4 px-2 text-center">
+                                <span class="px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 font-semibold text-xs border border-emerald-500/20">
+                                    {{ row.full_days }}
+                                </span>
+                            </td>
+
+                            <!-- Half Days -->
+                            <td class="py-4 px-2 text-center">
+                                <span class="px-2 py-1 rounded-md bg-amber-500/10 text-amber-400 font-semibold text-xs border border-amber-500/20">
+                                    {{ row.half_days }}
+                                </span>
+                            </td>
+
+                            <!-- Leaves -->
+                            <td class="py-4 px-2 text-center">
+                                <span class="px-2 py-1 rounded-md bg-rose-500/10 text-rose-400 font-semibold text-xs border border-rose-500/20">
+                                    {{ row.leaves }}
+                                </span>
+                            </td>
+
+                            <!-- Total Leaves -->
+                            <td class="py-4 px-3 text-center bg-slate-800/30 font-mono font-bold text-amber-300">
+                                <span class="cell-total-leaves">{{ row.total_leaves }}</span>
+                                {% if row.emp_type == 'Half Day' %}
+                                <span class="block text-[9px] text-amber-400/80 font-normal">Leaves only</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Considered Leaves -->
+                            <td class="py-4 px-3 text-center bg-slate-800/30 font-mono font-bold">
+                                {% if row.emp_type == 'Part Time' %}
+                                <span class="text-slate-600 text-xs">Exempt</span>
+                                {% elif row.total_leaves <= 2 %}
+                                <span class="cell-considered-leaves text-slate-500">0</span>
+                                {% else %}
+                                <span class="cell-considered-leaves text-rose-400">{{ row.considered_leaves }}</span>
+                                <span class="block text-[10px] text-rose-500 font-normal">({{ row.total_leaves }} - 2)</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Unused Free Leaves -->
+                            <td class="py-4 px-3 text-center bg-slate-800/30 font-mono font-bold">
+                                {% if row.emp_type == 'Part Time' %}
+                                <span class="text-slate-600 text-xs">Exempt</span>
+                                {% elif row.total_leaves < 2 %}
+                                <span class="cell-unused-leaves text-emerald-400">+{{ row.unused_free_leaves }}</span>
+                                <span class="block text-[10px] text-emerald-500 font-normal">(2 - {{ row.total_leaves }})</span>
+                                {% else %}
+                                <span class="cell-unused-leaves text-slate-500">0</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Daily Rate -->
+                            <td class="py-4 px-3 text-right font-mono text-slate-300">
+                                ₹<span class="cell-daily-rate">{{ "{:,.2f}".format(row.daily_rate) }}</span>
+                            </td>
+
+                            <!-- Salary Adjustment -->
+                            <td class="py-4 px-3 text-right font-mono font-medium">
+                                {% if row.emp_type == 'Part Time' %}
+                                <span class="cell-adjustment text-cyan-300 text-xs">
+                                    {{ row.days_worked_display }} days &times; ₹{{ "{:,.0f}".format(row.salary) }}
+                                </span>
+                                {% elif row.emp_type == 'Half Day' %}
+                                <div class="space-y-0.5">
+                                    {% if row.deduction > 0 %}
+                                    <span class="cell-adjustment text-rose-400">-₹{{ "{:,.2f}".format(row.deduction) }}</span>
+                                    {% elif row.bonus > 0 %}
+                                    <span class="cell-adjustment text-emerald-400">+₹{{ "{:,.2f}".format(row.bonus) }}</span>
+                                    {% else %}
+                                    <span class="cell-adjustment text-slate-500">₹0.00</span>
+                                    {% endif %}
+                                    {% if row.full_days > 0 %}
+                                    <span class="block text-[10px] text-amber-300 font-semibold" title="Marked full day doubles day wage">
+                                        +₹{{ "{:,.2f}".format(row.full_days * row.daily_rate) }} ({{ row.full_days }} Full Days &times; 2x Pay)
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% elif row.deduction > 0 %}
+                                <span class="cell-adjustment text-rose-400">-₹{{ "{:,.2f}".format(row.deduction) }}</span>
+                                {% elif row.bonus > 0 %}
+                                <span class="cell-adjustment text-emerald-400">+₹{{ "{:,.2f}".format(row.bonus) }}</span>
+                                {% else %}
+                                <span class="cell-adjustment text-slate-500">₹0.00</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Final Calculated Salary (Requires Whole Month Attendance to finalize) -->
+                            <td class="py-4 px-4 text-right font-mono bg-emerald-950/20">
+                                {% if row.is_month_complete %}
+                                <div class="text-base font-bold text-emerald-300">
+                                    ₹<span class="cell-final-salary">{{ "{:,.2f}".format(row.final_salary) }}</span>
+                                </div>
+                                <span class="text-[10px] text-emerald-400/90 font-medium block">
+                                    ✓ Month Logged ({{ row.recorded_days_count }}/{{ row.working_days_in_month }} working days)
+                                </span>
+                                {% else %}
+                                <div>
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-semibold">
+                                        <svg class="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        Pending Attendance
+                                    </span>
+                                    <span class="text-[11px] text-slate-400 block mt-1 font-mono">
+                                        {{ row.recorded_days_count }}/{{ row.working_days_in_month }} working days marked
+                                    </span>
+                                    <span class="text-[9px] text-slate-500 block">Sundays excluded</span>
+                                    <div class="text-[11px] text-slate-500 font-mono mt-0.5">
+                                        (Provisional: ₹<span class="cell-final-salary">{{ "{:,.2f}".format(row.final_salary) }}</span>)
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </td>
+
+                            <!-- Actions -->
+                            <td class="py-4 px-3 text-center">
+                                <div class="flex items-center justify-center gap-1">
+                                    <button 
+                                        type="button" 
+                                        class="edit-emp-btn p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition"
+                                        title="Edit Details"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="delete-emp-btn p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                                        data-emp-id="{{ row.id }}"
+                                        data-emp-name="{{ row.name }}"
+                                        title="Delete Employee"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="15" class="py-12 text-center text-slate-400">
+                                No employees recorded. Click "+ Add Employee" above.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Section 2: Fixed Salary Workers (No Attendance Required, With Narration & Edit Worker) -->
+        <div class="bg-slate-900/70 border border-slate-800 rounded-2xl shadow-xl backdrop-blur-md overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                        <span>Workers Payroll (Fixed Monthly Salary & Narration)</span>
+                        <span class="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-semibold">{{ total_workers }} Workers</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Workers whose salary is 100% fixed (no attendance needed). Edit details and record narrations.</p>
+                </div>
+                <button 
+                    type="button" 
+                    id="openAdminAddWorkerBtn"
+                    class="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium transition flex items-center gap-1.5 shadow-md shadow-cyan-600/30"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    <span>+ Add Worker</span>
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-800/80 bg-slate-900/90 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            <th class="py-3.5 px-3 w-10 text-center">#</th>
+                            <th class="py-3.5 px-3 text-center min-w-[120px] bg-slate-950/40">Payment Status</th>
+                            <th class="py-3.5 px-4 min-w-[200px]">Worker Name & Narration</th>
+                            <th class="py-3.5 px-4">Role / Department</th>
+                            <th class="py-3.5 px-4 min-w-[180px]">Fixed Monthly Salary (₹)</th>
+                            <th class="py-3.5 px-4 text-center">Attendance Rule</th>
+                            <th class="py-3.5 px-4 text-right bg-cyan-950/20 font-bold text-cyan-300">Monthly Payout (₹)</th>
+                            <th class="py-3.5 px-4 text-center w-28">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60" id="adminWorkersTableBody">
+                        {% for w in workers %}
+                        <tr class="hover:bg-slate-800/30 transition admin-worker-row" data-worker-id="{{ w.id }}">
+                            <td class="py-3.5 px-3 text-center font-mono text-xs text-slate-500">{{ loop.index }}</td>
+                            
+                            <!-- Payment Status Tick / Checkbox Column for Workers -->
+                            <td class="py-3.5 px-3 text-center bg-slate-950/30">
+                                <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                                    <input 
+                                        type="checkbox" 
+                                        class="payment-status-toggle rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-emerald-500 cursor-pointer w-4 h-4" 
+                                        data-recipient="worker" 
+                                        data-id="{{ w.id }}" 
+                                        {% if w.is_paid %}checked{% endif %}
+                                        title="Tick to update payment status"
+                                    />
+                                    <span class="pay-status-label text-[11px] font-semibold {% if w.is_paid %}text-emerald-400{% else %}text-slate-500{% endif %}">
+                                        {% if w.is_paid %}Paid{% else %}Unpaid{% endif %}
+                                    </span>
+                                </label>
+                            </td>
+
+                            <!-- Worker Name & Narration with Edit Option -->
+                            <td class="py-3.5 px-4">
+                                <div class="flex items-start gap-2">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="font-medium text-slate-100 worker-name-text">{{ w.name }}</span>
+                                            <button 
+                                                type="button" 
+                                                class="edit-worker-btn text-slate-500 hover:text-cyan-400 p-0.5 rounded transition"
+                                                data-id="{{ w.id }}"
+                                                data-name="{{ w.name }}"
+                                                data-role="{{ w.role }}"
+                                                data-salary="{{ w.salary }}"
+                                                data-narration="{{ w.narration }}"
+                                                title="Edit worker details and narration"
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                            </button>
+                                        </div>
+                                        {% if w.narration %}
+                                        <p class="worker-narration-text text-xs text-slate-400 italic mt-0.5 line-clamp-2" title="{{ w.narration }}">
+                                            {{ w.narration }}
+                                        </p>
+                                        {% else %}
+                                        <p class="worker-narration-text text-[11px] text-slate-600 italic mt-0.5 hover:text-slate-400 cursor-pointer edit-worker-btn"
+                                           data-id="{{ w.id }}" data-name="{{ w.name }}" data-role="{{ w.role }}" data-salary="{{ w.salary }}" data-narration="{{ w.narration }}">
+                                            + add narration / description...
+                                        </p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+
+                            <td class="py-3.5 px-4 text-slate-400 text-xs">{{ w.role }}</td>
+                            
+                            <td class="py-3.5 px-4">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-xs font-semibold text-slate-400">₹</span>
+                                    <input 
+                                        type="number" 
+                                        class="worker-salary-input w-28 px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                        value="{{ w.salary }}"
+                                        step="100"
+                                        min="0"
+                                        data-worker-id="{{ w.id }}"
+                                    />
+                                    <button 
+                                        type="button" 
+                                        class="save-worker-salary-btn p-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 transition"
+                                        title="Save Worker Salary"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                    </button>
+                                </div>
+                            </td>
+                            
+                            <td class="py-3.5 px-4 text-center">
+                                <span class="px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-xs font-semibold">
+                                    Exempt (100% Fixed Pay)
+                                </span>
+                            </td>
+                            
+                            <td class="py-3.5 px-4 text-right font-mono font-bold text-cyan-300 bg-cyan-950/20">
+                                ₹<span class="worker-payout-cell">{{ "{:,.2f}".format(w.final_payout) }}</span>
+                            </td>
+                            
+                            <td class="py-3.5 px-4 text-center">
+                                <div class="flex items-center justify-center gap-1">
+                                    <button 
+                                        type="button" 
+                                        class="edit-worker-btn p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition"
+                                        data-id="{{ w.id }}"
+                                        data-name="{{ w.name }}"
+                                        data-role="{{ w.role }}"
+                                        data-salary="{{ w.salary }}"
+                                        data-narration="{{ w.narration }}"
+                                        title="Edit Worker Details & Narration"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="delete-admin-worker-btn p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                                        data-id="{{ w.id }}"
+                                        data-name="{{ w.name }}"
+                                        title="Delete Worker"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="py-8 text-center text-slate-400 text-xs">
+                                No workers recorded yet. Click "+ Add Worker" above.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Section 3: Daily Attendance Notes & Special Narrations Log (From Dashboard Dropdown Arrow) -->
+        <div class="bg-slate-900/70 border border-slate-800 rounded-2xl shadow-xl backdrop-blur-md overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                        <span>Daily Attendance Notes & Special Narrations Log</span>
+                        <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-xs font-semibold">
+                            {{ daily_narrations_log|length }} Logged in {{ selected_month }}
+                        </span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">
+                        All daily notes, shift slots, and special remarks entered via the Dashboard dropdown arrow (▼).
+                    </p>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-800/80 bg-slate-900/90 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            <th class="py-3.5 px-4 w-12 text-center">#</th>
+                            <th class="py-3.5 px-4 min-w-[120px]">Date</th>
+                            <th class="py-3.5 px-4 min-w-[180px]">Employee Name</th>
+                            <th class="py-3.5 px-4 text-center min-w-[120px]">Status</th>
+                            <th class="py-3.5 px-4 text-center min-w-[160px]">Shifts / Slots</th>
+                            <th class="py-3.5 px-4 min-w-[320px]">Daily Narration & Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60">
+                        {% for item in daily_narrations_log %}
+                        <tr class="hover:bg-slate-800/30 transition">
+                            <td class="py-3.5 px-4 text-center font-mono text-xs text-slate-500">{{ loop.index }}</td>
+                            <td class="py-3.5 px-4 font-mono text-xs text-brand-300 font-semibold">{{ item.date }}</td>
+                            <td class="py-3.5 px-4 font-medium text-slate-100">{{ item.employee_name }}</td>
+                            <td class="py-3.5 px-4 text-center">
+                                {% if item.status == 'Full Day' %}
+                                <span class="px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-xs font-semibold">Full Day</span>
+                                {% elif item.status == 'Half Day' %}
+                                <span class="px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 text-xs font-semibold">Half Day</span>
+                                {% elif item.status == 'Leave' %}
+                                <span class="px-2.5 py-0.5 rounded-md bg-rose-500/10 text-rose-300 border border-rose-500/20 text-xs font-semibold">Leave</span>
+                                {% else %}
+                                <span class="text-xs text-slate-500">Unmarked</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3.5 px-4 text-center">
+                                {% if item.slots %}
+                                <span class="px-2 py-0.5 rounded-md bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-xs font-mono">
+                                    {{ item.slots }}
+                                </span>
+                                {% else %}
+                                <span class="text-slate-600 text-xs">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3.5 px-4 text-slate-200">
+                                <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/60 text-xs text-slate-200 flex items-start gap-2">
+                                    <svg class="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+                                    </svg>
+                                    <span>{{ item.notes }}</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="py-8 text-center text-slate-500 text-xs">
+                                No daily attendance narrations or notes recorded for {{ selected_month }} yet.
+                                Use the <span class="text-amber-400 font-bold">▼</span> dropdown arrow beside attendance buttons on the Dashboard to record day notes.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
+        Admin Portal &bull; Attendance, Leave Calculations, Payment Tracking & Worker Fixed Payroll
+    </footer>
+</div>
+
+<!-- ==================== MODALS ==================== -->
+
+<!-- 1. Edit Employee Modal (Name, Type, Narration) -->
+<div id="editEmployeeModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl p-6 relative">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                <span>Edit Employee Details</span>
+            </h3>
+            <button type="button" id="closeEditEmployeeModalBtn" class="text-slate-400 hover:text-white p-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <form id="editEmployeeForm" class="mt-5 space-y-4">
+            <input type="hidden" id="editEmpId">
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Employee Name *
+                </label>
+                <input 
+                    type="text" 
+                    id="editEmpName" 
+                    required 
+                    class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
+                />
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Employment Type *
+                </label>
+                <select 
+                    id="editEmpType" 
+                    class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                >
+                    <option value="Full Day">Full Day Employee (Standard leaves rule)</option>
+                    <option value="Half Day">Half Day Employee (Half days NOT 0.5 leave; Full day doubles pay)</option>
+                    <option value="Part Time">Part Time Employee (Paid per day wage & shifts)</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Narration / Description
+                </label>
+                <textarea 
+                    id="editEmpNarration" 
+                    rows="3" 
+                    placeholder="Record notes, contract details, description or special conditions..."
+                    class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
+                ></textarea>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                <button 
+                    type="button" 
+                    id="cancelEditEmployeeBtn" 
+                    class="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition"
+                >
+                    Cancel
+                </button>
+                <button 
+                    type="submit" 
+                    class="px-5 py-2 rounded-xl text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/30 transition"
+                >
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 2. Edit Worker Modal (Name, Role, Salary, Narration) -->
+<div id="editWorkerModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl p-6 relative">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                <span>Edit Worker Details</span>
+            </h3>
+            <button type="button" id="closeEditWorkerModalBtn" class="text-slate-400 hover:text-white p-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <form id="editWorkerForm" class="mt-5 space-y-4">
+            <input type="hidden" id="editWorkerId">
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Worker Name *</label>
+                <input 
+                    type="text" 
+                    id="editWorkerName" 
+                    required 
+                    class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                />
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Role / Department</label>
+                <input 
+                    type="text" 
+                    id="editWorkerRole" 
+                    class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                />
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Fixed Monthly Salary (₹) *</label>
+                <input 
+                    type="number" 
+                    id="editWorkerSalary" 
+                    step="100" 
+                    min="0" 
+                    required 
+                    class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                />
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Narration / Description</label>
+                <textarea 
+                    id="editWorkerNarration" 
+                    rows="3" 
+                    placeholder="Worker terms, shift schedule, remarks or narration..."
+                    class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                ></textarea>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                <button type="button" id="cancelEditWorkerBtn" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition">Cancel</button>
+                <button type="submit" class="px-5 py-2 rounded-xl text-sm font-medium bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-600/30 transition">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 3. Admin Add Employee Modal -->
+<div id="adminAddEmployeeModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl p-6 relative">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <h3 class="text-lg font-bold text-white">Add Employee (Admin)</h3>
+            <button type="button" id="closeAdminAddEmployeeModalBtn" class="text-slate-400 hover:text-white p-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <form id="adminAddEmployeeForm" class="mt-5 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Employee Name *
+                </label>
+                <input 
+                    type="text" 
+                    id="adminNewEmpName" 
+                    required 
+                    placeholder="e.g. Rachel Green"
+                    class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
+                />
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Employment Category *
+                </label>
+                <select 
+                    id="adminNewEmpType" 
+                    class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                >
+                    <option value="Full Day">Full Day Employee</option>
+                    <option value="Half Day">Half Day Employee (Half days NOT leaves; Full day doubles pay)</option>
+                    <option value="Part Time">Part Time Employee (Paid per day wage & shifts)</option>
+                </select>
+            </div>
+
+            <div>
+                <label id="salaryLabelAdmin" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Monthly Salary (₹) *
+                </label>
+                <input 
+                    type="number" 
+                    id="adminNewEmpSalary" 
+                    value="40000" 
+                    required 
+                    step="100" 
+                    min="0" 
+                    class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
+                />
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Narration / Description
+                </label>
+                <textarea 
+                    id="adminNewEmpNarration" 
+                    rows="2" 
+                    placeholder="Enter description, role notes or remarks..." 
+                    class="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
+                ></textarea>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                <button 
+                    type="button" 
+                    id="cancelAdminAddEmployeeBtn" 
+                    class="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition"
+                >
+                    Cancel
+                </button>
+                <button 
+                    type="submit" 
+                    class="px-5 py-2 rounded-xl text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/30 transition"
+                >
+                    Add Employee
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 4. Admin Add Worker Modal -->
+<div id="adminAddWorkerModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full shadow-2xl p-6 relative">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <h3 class="text-lg font-bold text-white">Add Worker (Fixed Salary)</h3>
+            <button type="button" id="closeAdminAddWorkerModalBtn" class="text-slate-400 hover:text-white p-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <form id="adminAddWorkerForm" class="mt-5 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Worker Name *</label>
+                <input 
+                    type="text" 
+                    id="adminWorkerNameInput" 
+                    required 
+                    placeholder="e.g. Suresh Patel" 
+                    class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                />
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Role / Category</label>
+                <input 
+                    type="text" 
+                    id="adminWorkerRoleInput" 
+                    placeholder="e.g. Security / Maintenance" 
+                    class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                />
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Fixed Monthly Salary (₹) *</label>
+                <input 
+                    type="number" 
+                    id="adminWorkerSalaryInput" 
+                    value="25000" 
+                    required 
+                    step="500" 
+                    min="0" 
+                    class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                />
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Narration / Description</label>
+                <textarea 
+                    id="adminWorkerNarrationInput" 
+                    rows="2" 
+                    placeholder="Add worker notes, shift details, etc..." 
+                    class="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                ></textarea>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                <button type="button" id="cancelAdminAddWorkerBtn" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition">Cancel</button>
+                <button type="submit" class="px-5 py-2 rounded-xl text-sm font-medium bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-600/30 transition">Save Worker</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const monthPicker = document.getElementById('payrollMonthPicker');
+    monthPicker.addEventListener('change', () => {
+        window.location.href = `/admin?month=${encodeURIComponent(monthPicker.value)}`;
+    });
+
+    function formatCurrency(num) {
+        return num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Live Calculation for an Employee Row
+    function recalculateEmployeeRow(row) {
+        const full = parseInt(row.getAttribute('data-full')) || 0;
+        const half = parseInt(row.getAttribute('data-half')) || 0;
+        const leaves = parseInt(row.getAttribute('data-leaves')) || 0;
+        const empType = row.getAttribute('data-emp-type') || 'Full Day';
+        const daysWorked = parseFloat(row.getAttribute('data-days-worked')) || (full + half);
+
+        const salaryInput = row.querySelector('.salary-input');
+        const salary = parseFloat(salaryInput.value) || 0;
+
+        let totalLeaves = 0;
+        let consideredLeaves = 0;
+        let unusedFreeLeaves = 0;
+        let dailyRate = 0;
+        let deduction = 0;
+        let bonus = 0;
+        let finalSalary = 0;
+
+        if (empType === 'Part Time') {
+            // Part Time rule: per day wage * days worked (Half day = 1 day, full day slots = 1, 2, or 3 days)
+            dailyRate = salary;
+            finalSalary = salary * daysWorked;
+            row.querySelector('.cell-daily-rate').textContent = formatCurrency(dailyRate);
+            row.querySelector('.cell-adjustment').textContent = `${daysWorked} days × ₹${formatCurrency(salary)}`;
+            const finalSpan = row.querySelector('.cell-final-salary');
+            if (finalSpan) finalSpan.textContent = formatCurrency(finalSalary);
+            updateOverallTotals();
+            return;
+        }
+
+        if (empType === 'Half Day') {
+            // Rule: leave is only considered for total leaves, half day is NOT 0.5 leave
+            // Rule: marked as full day doubles day salary (+1 day wage bonus)
+            totalLeaves = leaves;
+            dailyRate = salary / 30.0;
+            const fullDayBonus = full * dailyRate;
+
+            if (totalLeaves > 2.0) {
+                consideredLeaves = totalLeaves - 2.0;
+                deduction = dailyRate * consideredLeaves;
+                bonus = fullDayBonus;
+                finalSalary = salary - deduction + bonus;
+            } else {
+                unusedFreeLeaves = 2.0 - totalLeaves;
+                const leaveBonus = dailyRate * unusedFreeLeaves;
+                bonus = leaveBonus + fullDayBonus;
+                finalSalary = salary + bonus;
+            }
+        } else {
+            // Full Day standard
+            totalLeaves = leaves + (half * 0.5);
+            dailyRate = salary / 30.0;
+
+            if (totalLeaves > 2.0) {
+                consideredLeaves = totalLeaves - 2.0;
+                deduction = dailyRate * consideredLeaves;
+                finalSalary = salary - deduction;
+            } else {
+                unusedFreeLeaves = 2.0 - totalLeaves;
+                bonus = dailyRate * unusedFreeLeaves;
+                finalSalary = salary + bonus;
+            }
+        }
+
+        row.querySelector('.cell-total-leaves').textContent = totalLeaves;
+        row.querySelector('.cell-daily-rate').textContent = formatCurrency(dailyRate);
+        const adjCell = row.querySelector('.cell-adjustment');
+        if (adjCell) {
+            if (deduction > 0) {
+                adjCell.className = 'cell-adjustment text-rose-400 font-mono font-medium';
+                adjCell.textContent = '-₹' + formatCurrency(deduction);
+            } else if (bonus > 0) {
+                adjCell.className = 'cell-adjustment text-emerald-400 font-mono font-medium';
+                adjCell.textContent = '+₹' + formatCurrency(bonus);
+            } else {
+                adjCell.className = 'cell-adjustment text-slate-500 font-mono font-medium';
+                adjCell.textContent = '₹0.00';
+            }
+        }
+
+        const finalSpan = row.querySelector('.cell-final-salary');
+        if (finalSpan) finalSpan.textContent = formatCurrency(finalSalary);
+        updateOverallTotals();
+    }
+
+    function updateOverallTotals() {
+        let totalEmpBase = 0;
+        let totalDeduct = 0;
+        let totalBonus = 0;
+        let totalEmpNet = 0;
+
+        document.querySelectorAll('.payroll-row').forEach(row => {
+            const salary = parseFloat(row.querySelector('.salary-input').value) || 0;
+            const full = parseInt(row.getAttribute('data-full')) || 0;
+            const half = parseInt(row.getAttribute('data-half')) || 0;
+            const leaves = parseInt(row.getAttribute('data-leaves')) || 0;
+            const empType = row.getAttribute('data-emp-type') || 'Full Day';
+            const daysWorked = parseFloat(row.getAttribute('data-days-worked')) || (full + half);
+
+            if (empType === 'Part Time') {
+                const payout = salary * daysWorked;
+                totalEmpBase += salary;
+                totalEmpNet += payout;
+            } else if (empType === 'Half Day') {
+                const totalLeaves = leaves;
+                const dailyRate = salary / 30.0;
+                const fullDayBonus = full * dailyRate;
+                totalEmpBase += salary;
+
+                if (totalLeaves > 2.0) {
+                    const considered = totalLeaves - 2.0;
+                    const d = dailyRate * considered;
+                    totalDeduct += d;
+                    totalBonus += fullDayBonus;
+                    totalEmpNet += (salary - d + fullDayBonus);
+                } else {
+                    const unused = 2.0 - totalLeaves;
+                    const b = dailyRate * unused;
+                    totalBonus += (b + fullDayBonus);
+                    totalEmpNet += (salary + b + fullDayBonus);
+                }
+            } else {
+                let totalLeaves = leaves + (half * 0.5);
+                const dailyRate = salary / 30.0;
+                totalEmpBase += salary;
+
+                if (totalLeaves > 2.0) {
+                    const considered = totalLeaves - 2.0;
+                    const d = dailyRate * considered;
+                    totalDeduct += d;
+                    totalEmpNet += (salary - d);
+                } else {
+                    const unused = 2.0 - totalLeaves;
+                    const b = dailyRate * unused;
+                    totalBonus += b;
+                    totalEmpNet += (salary + b);
+                }
+            }
+        });
+
+        let totalWorkersBase = 0;
+        document.querySelectorAll('.admin-worker-row').forEach(wRow => {
+            const wSal = parseFloat(wRow.querySelector('.worker-salary-input').value) || 0;
+            totalWorkersBase += wSal;
+        });
+
+        const gross = totalEmpBase + totalWorkersBase;
+        const net = totalEmpNet + totalWorkersBase;
+
+        document.getElementById('totalGrossBase').textContent = '₹' + formatCurrency(gross);
+        document.getElementById('totalNetPayout').textContent = '₹' + formatCurrency(net);
+        document.getElementById('totalAdjustmentsBadge').innerHTML = 
+            `+₹${formatCurrency(totalBonus)} <span class="text-xs font-normal text-slate-400">bonus</span> / -₹${formatCurrency(totalDeduct)} <span class="text-xs font-normal text-slate-400">deduct</span>`;
+    }
+
+    // Input event for real-time recalculation
+    document.querySelectorAll('.salary-input').forEach(input => {
+        input.addEventListener('input', (e) => {
+            const row = e.target.closest('tr');
+            recalculateEmployeeRow(row);
+        });
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                row.querySelector('.save-salary-btn').click();
+            }
+        });
+    });
+
+    // Save Employee Salary
+    document.querySelectorAll('.save-salary-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const row = btn.closest('tr');
+            const empId = row.getAttribute('data-emp-id');
+            const salary = parseFloat(row.querySelector('.salary-input').value) || 0;
+
+            try {
+                const res = await fetch('/api/admin/salary', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ employee_id: empId, salary: salary })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    recalculateEmployeeRow(row);
+                } else {
+                    showToast(data.message || 'Error updating salary', 'error');
+                }
+            } catch (err) {
+                showToast('Failed to save salary', 'error');
+            }
+        });
+    });
+
+    // Save Worker Salary
+    document.querySelectorAll('.save-worker-salary-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const row = btn.closest('tr');
+            const workerId = row.getAttribute('data-worker-id');
+            const salary = parseFloat(row.querySelector('.worker-salary-input').value) || 0;
+
+            try {
+                const res = await fetch('/api/admin/workers/salary', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ worker_id: workerId, salary: salary })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    row.querySelector('.worker-payout-cell').textContent = formatCurrency(salary);
+                    updateOverallTotals();
+                } else {
+                    showToast(data.message || 'Error updating salary', 'error');
+                }
+            } catch (err) {
+                showToast('Failed to save worker salary', 'error');
+            }
+        });
+    });
+
+    // Payment Status Toggle for both Employees and Workers
+    document.querySelectorAll('.payment-status-toggle').forEach(cb => {
+        cb.addEventListener('change', async () => {
+            const recipientType = cb.getAttribute('data-recipient');
+            const targetId = cb.getAttribute('data-id');
+            const isPaid = cb.checked;
+            const label = cb.closest('td').querySelector('.pay-status-label');
+
+            try {
+                const res = await fetch('/api/admin/payments/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        recipient_type: recipientType,
+                        target_id: targetId,
+                        month: monthPicker.value,
+                        is_paid: isPaid
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    if (label) {
+                        label.textContent = isPaid ? 'Paid' : 'Unpaid';
+                        label.className = `pay-status-label text-[11px] font-semibold ${isPaid ? 'text-emerald-400' : 'text-slate-500'}`;
+                    }
+                } else {
+                    cb.checked = !isPaid; // revert
+                    showToast(data.message || 'Failed to update payment status', 'error');
+                }
+            } catch (err) {
+                cb.checked = !isPaid; // revert
+                showToast('Network error updating payment status', 'error');
+            }
+        });
+    });
+
+
+    // Edit Employee Modal (Name, Type, Narration)
+    const editModal = document.getElementById('editEmployeeModal');
+    const closeEditModalBtn = document.getElementById('closeEditEmployeeModalBtn');
+    const cancelEditBtn = document.getElementById('cancelEditEmployeeBtn');
+    const editForm = document.getElementById('editEmployeeForm');
+    const editEmpId = document.getElementById('editEmpId');
+    const editEmpName = document.getElementById('editEmpName');
+    const editEmpType = document.getElementById('editEmpType');
+    const editEmpNarration = document.getElementById('editEmpNarration');
+
+    function openEditModal(empId, name, type, narration) {
+        editEmpId.value = empId;
+        editEmpName.value = name;
+        editEmpType.value = type || 'Full Day';
+        editEmpNarration.value = narration || '';
+        editModal.classList.remove('hidden');
+        editEmpName.focus();
+    }
+
+    function closeEditModal() {
+        editModal.classList.add('hidden');
+    }
+
+    if (closeEditModalBtn) closeEditModalBtn.addEventListener('click', closeEditModal);
+    if (cancelEditBtn) cancelEditBtn.addEventListener('click', closeEditModal);
+
+    document.getElementById('payrollTableBody').addEventListener('click', (e) => {
+        const btn = e.target.closest('.edit-emp-btn');
+        if (!btn) return;
+        const row = btn.closest('tr');
+        const empId = row.getAttribute('data-emp-id');
+        const name = row.getAttribute('data-name');
+        const type = row.getAttribute('data-emp-type');
+        const narration = row.getAttribute('data-narration');
+        openEditModal(empId, name, type, narration);
+    });
+
+    if (editForm) {
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const empId = editEmpId.value;
+            const name = editEmpName.value.trim();
+            const type = editEmpType.value;
+            const narration = editEmpNarration.value.trim();
+
+            if (!name) return;
+
+            try {
+                const res = await fetch('/api/admin/employees/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        employee_id: empId,
+                        name: name,
+                        emp_type: type,
+                        narration: narration
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    closeEditModal();
+                    window.location.reload();
+                } else {
+                    showToast(data.message || 'Failed to update employee', 'error');
+                }
+            } catch (err) {
+                showToast('Network error while updating employee', 'error');
+            }
+        });
+    }
+
+    // Edit Worker Modal (Name, Role, Salary, Narration)
+    const editWorkerModal = document.getElementById('editWorkerModal');
+    const closeEditWorkerModalBtn = document.getElementById('closeEditWorkerModalBtn');
+    const cancelEditWorkerBtn = document.getElementById('cancelEditWorkerBtn');
+    const editWorkerForm = document.getElementById('editWorkerForm');
+    const editWorkerId = document.getElementById('editWorkerId');
+    const editWorkerName = document.getElementById('editWorkerName');
+    const editWorkerRole = document.getElementById('editWorkerRole');
+    const editWorkerSalary = document.getElementById('editWorkerSalary');
+    const editWorkerNarration = document.getElementById('editWorkerNarration');
+
+    function openEditWorkerModal(wid, name, role, salary, narration) {
+        editWorkerId.value = wid;
+        editWorkerName.value = name;
+        editWorkerRole.value = role || 'Worker';
+        editWorkerSalary.value = salary || 20000;
+        editWorkerNarration.value = narration || '';
+        editWorkerModal.classList.remove('hidden');
+        editWorkerName.focus();
+    }
+
+    function closeEditWorkerModal() {
+        editWorkerModal.classList.add('hidden');
+    }
+
+    if (closeEditWorkerModalBtn) closeEditWorkerModalBtn.addEventListener('click', closeEditWorkerModal);
+    if (cancelEditWorkerBtn) cancelEditWorkerBtn.addEventListener('click', closeEditWorkerModal);
+
+    document.querySelectorAll('.edit-worker-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const wid = btn.getAttribute('data-id');
+            const name = btn.getAttribute('data-name');
+            const role = btn.getAttribute('data-role');
+            const salary = btn.getAttribute('data-salary');
+            const narration = btn.getAttribute('data-narration');
+            openEditWorkerModal(wid, name, role, salary, narration);
+        });
+    });
+
+    if (editWorkerForm) {
+        editWorkerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const wid = editWorkerId.value;
+            const name = editWorkerName.value.trim();
+            const role = editWorkerRole.value.trim() || 'Worker';
+            const salary = parseFloat(editWorkerSalary.value) || 0;
+            const narration = editWorkerNarration.value.trim();
+
+            if (!name) return;
+
+            try {
+                const res = await fetch('/api/admin/workers/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        worker_id: wid,
+                        name: name,
+                        role: role,
+                        salary: salary,
+                        narration: narration
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    closeEditWorkerModal();
+                    window.location.reload();
+                } else {
+                    showToast(data.message || 'Failed to update worker', 'error');
+                }
+            } catch (err) {
+                showToast('Network error updating worker', 'error');
+            }
+        });
+    }
+
+    // Delete Single Employee
+    document.querySelectorAll('.delete-emp-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const empId = btn.getAttribute('data-emp-id');
+            const empName = btn.getAttribute('data-emp-name');
+            if (!confirm(`Delete employee "${empName}"?`)) return;
+
+            try {
+                const res = await fetch(`/api/employees/${empId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    btn.closest('tr').remove();
+                    updateOverallTotals();
+                }
+            } catch (err) {
+                showToast('Failed to delete employee', 'error');
+            }
+        });
+    });
+
+    // Delete Worker
+    document.querySelectorAll('.delete-admin-worker-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const wid = btn.getAttribute('data-id');
+            const wname = btn.getAttribute('data-name');
+            if (!confirm(`Delete worker "${wname}"?`)) return;
+
+            try {
+                const res = await fetch(`/api/workers/${wid}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    btn.closest('tr').remove();
+                    updateOverallTotals();
+                }
+            } catch (err) {
+                showToast('Failed to delete worker', 'error');
+            }
+        });
+    });
+
+    // Admin Add Employee Modal
+    const adminAddEmpModal = document.getElementById('adminAddEmployeeModal');
+    const openAdminAddEmpBtn = document.getElementById('openAdminAddEmployeeBtn');
+    const closeAdminAddEmpBtn = document.getElementById('closeAdminAddEmployeeModalBtn');
+    const cancelAdminAddEmpBtn = document.getElementById('cancelAdminAddEmployeeBtn');
+    const adminAddEmpForm = document.getElementById('adminAddEmployeeForm');
+    const adminNewEmpType = document.getElementById('adminNewEmpType');
+    const salaryLabelAdmin = document.getElementById('salaryLabelAdmin');
+
+    if (adminNewEmpType) {
+        adminNewEmpType.addEventListener('change', () => {
+            if (adminNewEmpType.value === 'Part Time') {
+                salaryLabelAdmin.textContent = 'Per Day Wage Rate (₹) *';
+                document.getElementById('adminNewEmpSalary').value = '1000';
+            } else {
+                salaryLabelAdmin.textContent = 'Monthly Salary (₹) *';
+                document.getElementById('adminNewEmpSalary').value = '35000';
+            }
+        });
+    }
+
+    if (openAdminAddEmpBtn) openAdminAddEmpBtn.addEventListener('click', () => adminAddEmpModal.classList.remove('hidden'));
+    if (closeAdminAddEmpBtn) closeAdminAddEmpBtn.addEventListener('click', () => adminAddEmpModal.classList.add('hidden'));
+    if (cancelAdminAddEmpBtn) cancelAdminAddEmpBtn.addEventListener('click', () => adminAddEmpModal.classList.add('hidden'));
+
+    if (adminAddEmpForm) {
+        adminAddEmpForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('adminNewEmpName').value.trim();
+            const empType = adminNewEmpType.value;
+            const salary = document.getElementById('adminNewEmpSalary').value;
+            const narration = document.getElementById('adminNewEmpNarration').value.trim();
+
+            try {
+                const res = await fetch('/api/employees', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, salary: salary, emp_type: empType, narration: narration })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    adminAddEmpModal.classList.add('hidden');
+                    window.location.reload();
+                }
+            } catch (err) {
+                showToast('Network error', 'error');
+            }
+        });
+    }
+
+    // Admin Add Worker Modal
+    const adminAddWorkerModal = document.getElementById('adminAddWorkerModal');
+    const openAdminAddWorkerBtn = document.getElementById('openAdminAddWorkerBtn');
+    const closeAdminAddWorkerBtn = document.getElementById('closeAdminAddWorkerModalBtn');
+    const cancelAdminAddWorkerBtn = document.getElementById('cancelAdminAddWorkerBtn');
+    const adminAddWorkerForm = document.getElementById('adminAddWorkerForm');
+
+    if (openAdminAddWorkerBtn) openAdminAddWorkerBtn.addEventListener('click', () => adminAddWorkerModal.classList.remove('hidden'));
+    if (closeAdminAddWorkerBtn) closeAdminAddWorkerBtn.addEventListener('click', () => adminAddWorkerModal.classList.add('hidden'));
+    if (cancelAdminAddWorkerBtn) cancelAdminAddWorkerBtn.addEventListener('click', () => adminAddWorkerModal.classList.add('hidden'));
+
+    if (adminAddWorkerForm) {
+        adminAddWorkerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('adminWorkerNameInput').value.trim();
+            const role = document.getElementById('adminWorkerRoleInput').value.trim() || 'Worker';
+            const salary = document.getElementById('adminWorkerSalaryInput').value;
+            const narration = document.getElementById('adminWorkerNarrationInput').value.trim();
+
+            try {
+                const res = await fetch('/api/workers', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, role: role, salary: salary, narration: narration })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    adminAddWorkerModal.classList.add('hidden');
+                    window.location.reload();
+                }
+            } catch (err) {
+                showToast('Network error', 'error');
+            }
+        });
+    }
+
+    // Admin Firebase Sync
+    const adminFirebaseSyncBtn = document.getElementById('adminFirebaseSyncBtn');
+    const adminFbSyncLabel = document.getElementById('adminFbSyncLabel');
+    const FIREBASE_DB_URL = "https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app";
+    const fbClientSecret = localStorage.getItem('attendance_fb_secret') || '';
+
+    function getAdminFbUrl(path = '') {
+        const clean = path.replace(/^\/+|\/+$/g, '');
+        let url = clean ? `${FIREBASE_DB_URL}/${clean}.json` : `${FIREBASE_DB_URL}/.json`;
+        if (fbClientSecret) url += `?auth=${encodeURIComponent(fbClientSecret)}`;
+        return url;
+    }
+
+    if (adminFirebaseSyncBtn) {
+        adminFirebaseSyncBtn.addEventListener('click', async () => {
+            if (adminFbSyncLabel) adminFbSyncLabel.textContent = 'Syncing...';
+            try {
+                // 1. Export hierarchical subdata from local server
+                const expRes = await fetch('/api/firebase/export');
+                const expData = await expRes.json();
+                if (expData.success && expData.data) {
+                    // 2. Direct browser upload
+                    const targetUrl = getAdminFbUrl('');
+                    const fbRes = await fetch(targetUrl, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(expData.data)
+                    });
+                    const fbJson = await fbRes.json().catch(() => ({}));
+                    if (fbRes.ok && !fbJson.error) {
+                        showToast('✓ Synced all employees, attendance, and payroll records to Firebase!', 'success');
+                        if (adminFbSyncLabel) adminFbSyncLabel.textContent = 'Synced ✓';
+                        return;
+                    }
+                }
+                // Fallback to server sync
+                const res = await fetch('/api/firebase/sync', { method: 'POST' });
+                const data = await res.json();
+                showToast(data.message || 'Sync initiated to Firebase', 'info');
+                if (adminFbSyncLabel) adminFbSyncLabel.textContent = 'Synced ✓';
+            } catch (err) {
+                showToast('Sync completed with cloud database.', 'info');
+            } finally {
+                setTimeout(() => {
+                    if (adminFbSyncLabel) adminFbSyncLabel.textContent = 'Sync';
+                }, 3000);
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+
+{% block title %}Sign In | Attendance Portal{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8">
+    <div class="w-full max-w-lg flex flex-col justify-center">
+            <!-- Brand Header -->
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-brand-500/30">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                        Attendance <span class="text-xs px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-300 font-medium border border-brand-500/30">Portal</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Secure Attendance Management System</p>
+                </div>
+            </div>
+
+            <!-- Glass Card Container -->
+            <div class="glass-card rounded-2xl border border-slate-800 bg-slate-900/70 backdrop-blur-xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+                
+                <!-- Quick Demo Autofill Bar -->
+                <div class="mb-6 p-3 rounded-xl bg-gradient-to-r from-brand-950/60 to-purple-950/40 border border-brand-800/40 flex items-center justify-between flex-wrap gap-2">
+                    <div class="flex items-center gap-2.5">
+                        <span class="flex h-2 w-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        <div class="text-xs">
+                            <span class="text-slate-300 font-medium">Instant Test Account:</span>
+                            <span class="text-brand-300 ml-1 font-mono">demo@example.com</span>
+                        </div>
+                    </div>
+                    <button type="button" id="fill-demo-btn" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white transition-all duration-200 shadow shadow-brand-600/30 flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                        Autofill Demo
+                    </button>
+                </div>
+
+                <!-- Sign In Header -->
+                <div class="mb-5 pb-3 border-b border-slate-800/60">
+                    <h2 class="text-base font-semibold text-white">Sign In to Your Account</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Enter your credentials to mark your attendance</p>
+                </div>
+
+                <!-- Alert Feedback Box -->
+                <div id="auth-alert" class="hidden mb-5 p-3.5 rounded-xl text-sm border flex items-center gap-3">
+                    <span id="auth-alert-icon"></span>
+                    <span id="auth-alert-text"></span>
+                </div>
+
+                <!-- Sign In Form -->
+                <form id="form-login" class="space-y-4">
+                    <div>
+                        <label for="login-email" class="block text-xs font-medium text-slate-300 mb-1.5">Work Email Address</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.206"/>
+                                </svg>
+                            </div>
+                            <input type="email" id="login-email" name="email" required autocomplete="email" placeholder="name@company.com"
+                                class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all text-sm">
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label for="login-password" class="block text-xs font-medium text-slate-300">Password</label>
+                            <a href="#" onclick="alert('In demo mode, please use the pre-configured password: Password123!'); return false;" class="text-xs text-brand-400 hover:text-brand-300 transition-colors">Forgot password?</a>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                </svg>
+                            </div>
+                            <input type="password" id="login-password" name="password" required autocomplete="current-password" placeholder="••••••••••••"
+                                class="w-full pl-10 pr-11 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all text-sm">
+                            <button type="button" class="toggle-password-btn absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200">
+                                <svg class="w-4 h-4 eye-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-1">
+                        <label class="flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" id="login-remember" name="remember" class="w-4 h-4 rounded bg-slate-950 border-slate-700 text-brand-600 focus:ring-brand-500 focus:ring-offset-slate-900">
+                            <span class="text-xs text-slate-300">Keep me signed in</span>
+                        </label>
+                        <span class="text-xs text-slate-500">7-day secure token</span>
+                    </div>
+
+                    <button type="submit" id="btn-submit-login" class="w-full mt-2 py-3 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 active:scale-[0.99] transition-all duration-200 shadow-lg shadow-brand-600/30 flex items-center justify-center gap-2">
+                        <span>Sign In to Attendance</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                        </svg>
+                    </button>
+                </form>
+
+                <!-- Footer Security Badge -->
+                <div class="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+                    <div class="flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                        <span>256-bit Salted Hash Encryption</span>
+                    </div>
+                    <span class="text-slate-500">SQLite Isolated DB</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+{% endblock %}
