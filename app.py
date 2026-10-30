@@ -3,7 +3,7 @@ import datetime
 import calendar
 from functools import wraps
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-from database import get_db, init_db
+from database import get_db, init_db, persist_to_json
 from firebase_db import (
     FIREBASE_DATABASE_URL,
     check_connection as check_firebase_connection,
@@ -19,6 +19,7 @@ from firebase_db import (
     async_sync_attendance,
     async_delete_attendance,
     async_sync_payment_status,
+    async_sync_all_sqlite
 )
 
 app = Flask(__name__)
@@ -160,7 +161,6 @@ def save_attendance():
             with get_db() as conn:
                 conn.execute("DELETE FROM attendance_records WHERE employee_id = ? AND date = ?", (emp_id, date_str))
                 conn.commit()
-            async_delete_attendance(emp_id, date_str)
             return jsonify({'success': True, 'message': 'Cleared attendance for Sunday.', 'status': '', 'is_sunday': True})
         return jsonify({
             'success': False,
@@ -192,6 +192,7 @@ def save_attendance():
         if action == 'deselect' or status == 'deselect' or (existing and status and existing['status'] == status and not slots_str):
             conn.execute("DELETE FROM attendance_records WHERE employee_id = ? AND date = ?", (emp_id, date_str))
             conn.commit()
+            persist_to_json()
             new_status = ''
             message = f"Cleared attendance for {emp['name']}"
             async_delete_attendance(emp_id, date_str)
@@ -214,9 +215,10 @@ def save_attendance():
                     updated_at = CURRENT_TIMESTAMP
             ''', (emp_id, date_str, status, notes_val, slots_val, notes_val))
             conn.commit()
+            persist_to_json()
             new_status = status
             message = f"Marked {status} for {emp['name']}"
-            async_sync_attendance(emp_id, date_str, new_status, notes=notes_val, slots=slots_val)
+            async_sync_attendance(emp_id, date_str, status, notes_val, slots_val)
 
         att_rows = conn.execute("SELECT status FROM attendance_records WHERE date = ?", (date_str,)).fetchall()
         full_count = sum(1 for r in att_rows if r['status'] == 'Full Day')
@@ -268,8 +270,8 @@ def save_attendance_note():
                 updated_at = CURRENT_TIMESTAMP
         ''', (emp_id, date_str, status_val, notes))
         conn.commit()
-
-    async_sync_attendance(emp_id, date_str, status_val, notes=notes)
+        persist_to_json()
+        async_sync_attendance(emp_id, date_str, status_val, notes, '')
 
     return jsonify({
         'success': True,
@@ -444,21 +446,41 @@ def add_employee():
     if not name:
         return jsonify({'success': False, 'message': 'Employee name is required.'}), 400
         
+    date_str = (data.get('date') or '').strip()
+
     with get_db() as conn:
         cursor = conn.execute(
             "INSERT INTO employees (name, salary, emp_type, narration) VALUES (?, ?, ?, ?)",
             (name, salary, emp_type, narration)
         )
-        conn.commit()
         emp_id = cursor.lastrowid
-        
-    async_sync_employee(emp_id, {
-        'id': emp_id,
-        'name': name,
-        'salary': salary,
-        'emp_type': emp_type,
-        'narration': narration
-    })
+
+        # If a date was provided from the dashboard, also record attendance for today (unless Sunday)
+        if date_str:
+            try:
+                parsed_d = datetime.date.fromisoformat(date_str)
+                is_sun = (parsed_d.weekday() == 6)
+            except ValueError:
+                is_sun = False
+
+            if not is_sun:
+                initial_status = 'Full Day' if emp_type in ['Full Day', 'Part Time'] else ('Half Day' if emp_type == 'Half Day' else '')
+                initial_slots = 'Morning' if emp_type == 'Part Time' else ''
+                if initial_status:
+                    conn.execute(
+                        "INSERT INTO attendance_records (employee_id, date, status, notes, slots) VALUES (?, ?, ?, '', ?)",
+                        (emp_id, date_str, initial_status, initial_slots)
+                    )
+                    async_sync_attendance(emp_id, date_str, initial_status, '', initial_slots)
+        conn.commit()
+        persist_to_json()
+        async_sync_employee(emp_id, {
+            'id': emp_id,
+            'name': name,
+            'salary': salary,
+            'emp_type': emp_type,
+            'narration': narration
+        })
 
     return jsonify({
         'success': True,
@@ -466,6 +488,7 @@ def add_employee():
         'employee': {
             'id': emp_id,
             'name': name,
+            'salary': salary,
             'emp_type': emp_type,
             'narration': narration
         }
@@ -495,13 +518,8 @@ def update_employee_details():
             (name, emp_type, narration, emp_id)
         )
         conn.commit()
-
-    async_sync_employee(emp_id, {
-        'id': emp_id,
-        'name': name,
-        'emp_type': emp_type,
-        'narration': narration
-    })
+        persist_to_json()
+        async_sync_employee(emp_id, {'id': emp_id, 'name': name, 'emp_type': emp_type, 'narration': narration})
 
     return jsonify({
         'success': True,
@@ -524,7 +542,8 @@ def delete_employee(emp_id):
         name = emp['name']
         conn.execute("DELETE FROM employees WHERE id = ?", (emp_id,))
         conn.commit()
-    async_delete_employee(emp_id)
+        persist_to_json()
+        async_delete_employee(emp_id)
     return jsonify({'success': True, 'message': f"Employee '{name}' removed successfully."})
 
 @app.route('/api/admin/employees/bulk-delete', methods=['POST'])
@@ -539,27 +558,13 @@ def bulk_delete_employees():
         placeholders = ','.join('?' for _ in emp_ids)
         conn.execute(f"DELETE FROM employees WHERE id IN ({placeholders})", emp_ids)
         conn.commit()
-
-    for eid in emp_ids:
-        async_delete_employee(eid)
+        persist_to_json()
+        for eid in emp_ids:
+            async_delete_employee(eid)
 
     return jsonify({
         'success': True,
         'message': f"Successfully deleted {len(emp_ids)} employees."
-    })
-
-@app.route('/api/admin/reset-database', methods=['POST'])
-@admin_required
-def reset_database():
-    with get_db() as conn:
-        conn.execute("DELETE FROM attendance_records")
-        conn.execute("DELETE FROM payroll_payments")
-        conn.execute("DELETE FROM employees")
-        conn.execute("DELETE FROM workers")
-        conn.commit()
-    return jsonify({
-        'success': True,
-        'message': 'Database completely cleared. All records have been removed.'
     })
 
 # 9. Workers Management (Fixed Salary, No Attendance Required)
@@ -591,15 +596,15 @@ def add_worker():
             (name, role, salary, narration)
         )
         conn.commit()
+        persist_to_json()
         worker_id = cursor.lastrowid
-
-    async_sync_worker(worker_id, {
-        'id': worker_id,
-        'name': name,
-        'role': role,
-        'salary': salary,
-        'narration': narration
-    })
+        async_sync_worker(worker_id, {
+            'id': worker_id,
+            'name': name,
+            'role': role,
+            'salary': salary,
+            'narration': narration
+        })
 
     return jsonify({
         'success': True,
@@ -634,14 +639,14 @@ def update_worker_details():
             WHERE id = ?
         ''', (name, role, salary, narration, worker_id))
         conn.commit()
-
-    async_sync_worker(worker_id, {
-        'id': worker_id,
-        'name': name,
-        'role': role,
-        'salary': salary,
-        'narration': narration
-    })
+        persist_to_json()
+        async_sync_worker(worker_id, {
+            'id': worker_id,
+            'name': name,
+            'role': role,
+            'salary': salary,
+            'narration': narration
+        })
 
     return jsonify({
         'success': True,
@@ -664,7 +669,8 @@ def delete_worker(worker_id):
         name = worker['name']
         conn.execute("DELETE FROM workers WHERE id = ?", (worker_id,))
         conn.commit()
-    async_delete_worker(worker_id)
+        persist_to_json()
+        async_delete_worker(worker_id)
     return jsonify({'success': True, 'message': f"Worker '{name}' removed successfully."})
 
 @app.route('/api/admin/workers/salary', methods=['POST'])
@@ -685,11 +691,8 @@ def update_worker_salary():
             return jsonify({'success': False, 'message': 'Worker not found.'}), 404
         conn.execute("UPDATE workers SET salary = ? WHERE id = ?", (new_salary, worker_id))
         conn.commit()
-
-    async_sync_worker(worker_id, {
-        'id': worker_id,
-        'salary': new_salary
-    })
+        persist_to_json()
+        async_sync_worker(worker_id, {'salary': new_salary})
 
     return jsonify({
         'success': True,
@@ -722,8 +725,8 @@ def toggle_payment_status():
                 paid_at = excluded.paid_at
         ''', (recipient_type, target_id, month, 1 if is_paid else 0, paid_at))
         conn.commit()
-
-    async_sync_payment_status(recipient_type, target_id, month, is_paid)
+        persist_to_json()
+        async_sync_payment_status(recipient_type, target_id, month, is_paid)
 
     return jsonify({
         'success': True,
@@ -1010,11 +1013,7 @@ def update_salary():
             return jsonify({'success': False, 'message': 'Employee not found.'}), 404
         conn.execute("UPDATE employees SET salary = ? WHERE id = ?", (new_salary, emp_id))
         conn.commit()
-        
-    async_sync_employee(emp_id, {
-        'id': emp_id,
-        'salary': new_salary
-    })
+        async_sync_employee(emp_id, {'salary': new_salary})
 
     return jsonify({
         'success': True,
@@ -1043,6 +1042,7 @@ def get_firebase_status():
     })
 
 @app.route('/api/firebase/export', methods=['GET'])
+@app.route('/api/firebase/full-export', methods=['GET'])
 def export_firebase_data():
     payload = export_full_database(get_db)
     return jsonify({
@@ -1070,14 +1070,13 @@ def sync_to_firebase():
         'success': report.get('success', False),
         'report': report,
         'error': report.get('error'),
-        'databaseURL': FIREBASE_DATABASE_URL,
         'message': msg
     })
 
 if __name__ == '__main__':
     import sys
     init_db()
-    port = int(os.environ.get('PORT', 5001))
+    port = int(os.environ.get('PORT', 8080))
     if '--port' in sys.argv:
         try:
             port = int(sys.argv[sys.argv.index('--port') + 1])

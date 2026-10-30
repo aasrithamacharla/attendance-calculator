@@ -36,56 +36,19 @@
                         class="bg-slate-700/80 border border-slate-600 rounded-xl px-3 py-1.5 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
                     />
                 </div>
-
-                {% if not force_calculate %}
-                <a 
-                    href="?month={{ selected_month }}&force=1"
-                    title="Calculate provisional salaries for employees whose whole month attendance is not yet completed"
-                    class="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-300 text-xs font-semibold transition"
-                >
-                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                    <span>Force Preview All</span>
-                </a>
-                {% else %}
-                <a 
-                    href="?month={{ selected_month }}"
-                    title="Exit force calculate preview mode and show strict completion check"
-                    class="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
-                >
-                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    <span>Strict Month Mode</span>
-                </a>
-                {% endif %}
             </div>
 
             <!-- Navigation Buttons -->
             <div class="flex items-center gap-2.5">
-                <!-- Firebase Realtime Database Status & Sync -->
-                <button 
-                    type="button" 
-                    id="adminFirebaseSyncBtn"
-                    class="flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-500/10 border border-orange-500/30 hover:bg-orange-500/20 text-orange-300 text-xs font-semibold transition shadow-sm"
-                    title="Firebase Realtime Database: Connected to https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app"
-                >
-                    <span class="relative flex h-2 w-2">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M4.697 19.303l4.303-15.303 3.5 6.5-2 3.803zm14.606 0l-7.303-13.803-3 5.5 8.303 8.303zm-14.606 0l14.606 0-3.5-3.5-7.606-1.5z"/>
-                    </svg>
-                    <span class="hidden sm:inline">Firebase DB</span>
-                    <span id="adminFbSyncLabel" class="text-[11px] font-bold text-emerald-400">Sync</span>
-                </button>
 
                 <button 
                     type="button" 
-                    id="openResetDatabaseModalBtn"
-                    class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/30 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold transition"
-                    title="Clear all records to start fresh from 0 employees"
+                    id="openTopAddEmployeeBtn"
+                    class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-md transition"
+                    title="Add a new employee"
                 >
-                    <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                    <span class="hidden sm:inline">Reset Database</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    <span>Add Employee</span>
                 </button>
 
                 <a 
@@ -1033,29 +996,6 @@
     </div>
 </div>
 
-<!-- 5. Reset Database Confirmation Modal -->
-<div id="resetDatabaseModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
-    <div class="bg-slate-900 border border-rose-900/50 rounded-2xl max-w-md w-full shadow-2xl p-6 relative">
-        <div class="flex items-center gap-3 pb-4 border-b border-slate-800">
-            <div class="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-            </div>
-            <div>
-                <h3 class="text-lg font-bold text-white">Reset Entire Database?</h3>
-                <p class="text-xs text-rose-400">Clear all records from database & frontend</p>
-            </div>
-        </div>
-
-        <p class="text-xs text-slate-300 mt-4 leading-relaxed">
-            This will permanently remove all employees, workers, attendance records, and payments from both the <strong>local database</strong> and <strong>Firebase</strong>. Both the database and frontend will start fresh with <strong>0 records</strong>.
-        </p>
-
-        <div class="flex items-center justify-end gap-3 pt-5 border-t border-slate-800 mt-5">
-            <button type="button" id="cancelResetDatabaseBtn" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition">Cancel</button>
-            <button type="button" id="confirmResetDatabaseBtn" class="px-5 py-2 rounded-xl text-sm font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition">Yes, Clear All Data</button>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
@@ -1320,7 +1260,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         label.textContent = isPaid ? 'Paid' : 'Unpaid';
                         label.className = `pay-status-label text-[11px] font-semibold ${isPaid ? 'text-emerald-400' : 'text-slate-500'}`;
                     }
-                    syncPaymentToFirebaseClient(recipientType, targetId, monthPicker.value, isPaid);
+
+                    // Direct Firebase Realtime Sync
+                    try {
+                        const targetPath = recipientType === 'employee' ? `employees/emp_${targetId}/payroll/${monthPicker.value}` : `workers/worker_${targetId}/payroll/${monthPicker.value}`;
+                        fetch(`https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app/${targetPath}.json`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            mode: 'cors',
+                            body: JSON.stringify({
+                                month: monthPicker.value,
+                                is_paid: isPaid,
+                                updated_at: new Date().toISOString()
+                            })
+                        }).catch(() => {});
+                    } catch (e) {}
                 } else {
 
                     cb.checked = !isPaid; // revert
@@ -1395,6 +1349,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const data = await res.json();
                 if (data.success) {
+                    try {
+                        const cleanId = String(empId).replace(/^emp_/, '');
+                        await fetch(`https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app/employees/emp_${cleanId}/profile.json`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            mode: 'cors',
+                            body: JSON.stringify({
+                                name: name,
+                                emp_type: type,
+                                narration: narration
+                            })
+                        });
+                    } catch (fbErr) {}
                     showToast(data.message, 'success');
                     closeEditModal();
                     window.location.reload();
@@ -1471,6 +1438,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 const data = await res.json();
                 if (data.success) {
+                    try {
+                        const cleanWid = String(wid).replace(/^worker_/, '');
+                        await fetch(`https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app/workers/worker_${cleanWid}/profile.json`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            mode: 'cors',
+                            body: JSON.stringify({
+                                name: name,
+                                role: role,
+                                salary: salary,
+                                narration: narration
+                            })
+                        });
+                    } catch (fbErr) {}
                     showToast(data.message, 'success');
                     closeEditWorkerModal();
                     window.location.reload();
@@ -1494,6 +1475,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch(`/api/employees/${empId}`, { method: 'DELETE' });
                 const data = await res.json();
                 if (data.success) {
+                    try {
+                        const cleanId = String(empId).replace(/^emp_/, '');
+                        fetch(`https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app/employees/emp_${cleanId}.json`, {
+                            method: 'DELETE',
+                            mode: 'cors'
+                        }).catch(() => {});
+                    } catch (fbErr) {}
                     showToast(data.message, 'success');
                     btn.closest('tr').remove();
                     updateOverallTotals();
@@ -1515,6 +1503,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch(`/api/workers/${wid}`, { method: 'DELETE' });
                 const data = await res.json();
                 if (data.success) {
+                    try {
+                        const cleanWid = String(wid).replace(/^worker_/, '');
+                        fetch(`https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app/workers/worker_${cleanWid}.json`, {
+                            method: 'DELETE',
+                            mode: 'cors'
+                        }).catch(() => {});
+                    } catch (fbErr) {}
                     showToast(data.message, 'success');
                     btn.closest('tr').remove();
                     updateOverallTotals();
@@ -1565,10 +1560,37 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({ name: name, salary: salary, emp_type: empType, narration: narration })
                 });
                 const data = await res.json();
-                if (data.success) {
+                if (data.success && data.employee) {
+                    // Direct reflection into Firebase Realtime Database
+                    try {
+                        const cleanId = String(data.employee.id).replace(/^emp_/, '');
+                        const parsedSalary = parseFloat(salary) || (empType === 'Part Time' ? 1000 : 30000);
+                        await fetch(`https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app/employees/emp_${cleanId}.json`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            mode: 'cors',
+                            body: JSON.stringify({
+                                profile: {
+                                    id: parseInt(cleanId),
+                                    name: name,
+                                    salary: parsedSalary,
+                                    emp_type: empType,
+                                    narration: narration,
+                                    created_at: new Date().toISOString()
+                                },
+                                attendance: {},
+                                payroll: {}
+                            })
+                        });
+                    } catch (fbErr) {
+                        console.warn('[Direct Firebase] Employee sync error:', fbErr);
+                    }
+
                     showToast(data.message, 'success');
                     adminAddEmpModal.classList.add('hidden');
                     window.location.reload();
+                } else {
+                    showToast(data.message || 'Error adding employee', 'error');
                 }
             } catch (err) {
                 showToast('Network error', 'error');
@@ -1602,10 +1624,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({ name: name, role: role, salary: salary, narration: narration })
                 });
                 const data = await res.json();
-                if (data.success) {
+                if (data.success && data.worker) {
+                    try {
+                        const cleanWid = String(data.worker.id).replace(/^worker_/, '');
+                        await fetch(`https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app/workers/worker_${cleanWid}.json`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            mode: 'cors',
+                            body: JSON.stringify({
+                                profile: {
+                                    id: parseInt(cleanWid),
+                                    name: name,
+                                    role: role,
+                                    salary: parseFloat(salary) || 20000,
+                                    narration: narration,
+                                    created_at: new Date().toISOString()
+                                },
+                                payroll: {}
+                            })
+                        });
+                    } catch (fbErr) {}
+
                     showToast(data.message, 'success');
                     adminAddWorkerModal.classList.add('hidden');
                     window.location.reload();
+                } else {
+                    showToast(data.message || 'Error adding worker', 'error');
                 }
             } catch (err) {
                 showToast('Network error', 'error');
@@ -1613,128 +1657,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Admin Firebase Sync
-    const adminFirebaseSyncBtn = document.getElementById('adminFirebaseSyncBtn');
-    const adminFbSyncLabel = document.getElementById('adminFbSyncLabel');
-    const FIREBASE_DB_URL = "https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app";
-    const fbClientSecret = localStorage.getItem('attendance_fb_secret') || '';
-
-    function getAdminFbUrl(path = '') {
-        let clean = (path || '').replace(/^\/+|\/+$/g, '');
-        let query = '';
-        if (clean.includes('?')) {
-            const parts = clean.split('?');
-            clean = parts[0];
-            query = parts[1];
-        }
-        if (clean.endsWith('.json')) {
-            clean = clean.slice(0, -5);
-        }
-        let url = clean ? `${FIREBASE_DB_URL}/${clean}.json` : `${FIREBASE_DB_URL}/.json`;
-        const params = new URLSearchParams(query);
-        if (fbClientSecret) params.set('auth', fbClientSecret);
-        const qs = params.toString();
-        if (qs) url += `?${qs}`;
-        return url;
-    }
-
-    async function syncPaymentToFirebaseClient(recipientType, targetId, month, isPaid) {
-        try {
-            const cleanId = String(targetId).replace(/^(emp_|worker_)/, '');
-            const subpath = recipientType === 'employee' 
-                ? `employees/emp_${cleanId}/payroll/${month}` 
-                : `workers/worker_${cleanId}/payroll/${month}`;
-            const url = getAdminFbUrl(subpath);
-            await fetch(url, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                mode: 'cors',
-                body: JSON.stringify({
-                    month: month,
-                    is_paid: Boolean(isPaid),
-                    paid_at: isPaid ? new Date().toISOString() : '',
-                    updated_at: new Date().toISOString()
-                })
-            });
-            console.log(`[Firebase Live] Synced payment status for ${recipientType} ${cleanId} (${month}): ${isPaid ? 'PAID' : 'UNPAID'}`);
-        } catch (e) {
-            console.warn('[Firebase Live] Payment sync error:', e);
-        }
-    }
-
-
-    if (adminFirebaseSyncBtn) {
-        adminFirebaseSyncBtn.addEventListener('click', async () => {
-            if (adminFbSyncLabel) adminFbSyncLabel.textContent = 'Syncing...';
-            try {
-                // 1. Export hierarchical subdata from local server
-                const expRes = await fetch('/api/firebase/export');
-                const expData = await expRes.json();
-                if (expData.success && expData.data) {
-                    // 2. Direct browser upload
-                    const targetUrl = getAdminFbUrl('');
-                    const fbRes = await fetch(targetUrl, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(expData.data)
-                    });
-                    const fbJson = await fbRes.json().catch(() => ({}));
-                    if (fbRes.ok && !fbJson.error) {
-                        showToast('✓ Synced all employees, attendance, and payroll records to Firebase!', 'success');
-                        if (adminFbSyncLabel) adminFbSyncLabel.textContent = 'Synced ✓';
-                        return;
-                    }
-                }
-                // Fallback to server sync
-                const res = await fetch('/api/firebase/sync', { method: 'POST' });
-                const data = await res.json();
-                showToast(data.message || 'Sync initiated to Firebase', 'info');
-                if (adminFbSyncLabel) adminFbSyncLabel.textContent = 'Synced ✓';
-            } catch (err) {
-                showToast('Sync completed with cloud database.', 'info');
-            } finally {
-                setTimeout(() => {
-                    if (adminFbSyncLabel) adminFbSyncLabel.textContent = 'Sync';
-                }, 3000);
-            }
-        });
-    }
-
-    // Reset Database wiring
-    const resetModal = document.getElementById('resetDatabaseModal');
-    const openResetBtn = document.getElementById('openResetDatabaseModalBtn');
-    const cancelResetBtn = document.getElementById('cancelResetDatabaseBtn');
-    const confirmResetBtn = document.getElementById('confirmResetDatabaseBtn');
-
-    if (openResetBtn) openResetBtn.addEventListener('click', () => resetModal && resetModal.classList.remove('hidden'));
-    if (cancelResetBtn) cancelResetBtn.addEventListener('click', () => resetModal && resetModal.classList.add('hidden'));
-
-    if (confirmResetBtn) {
-        confirmResetBtn.addEventListener('click', async () => {
-            confirmResetBtn.disabled = true;
-            confirmResetBtn.textContent = 'Clearing records...';
-            try {
-                // 1. Clear local database
-                const apiRes = await fetch('/api/admin/reset-database', { method: 'POST' });
-                const apiData = await apiRes.json();
-                
-                // 2. Clear Firebase Realtime Database
-                try {
-                    const targetUrl = getAdminFbUrl('');
-                    await fetch(targetUrl, { method: 'DELETE', mode: 'cors' });
-                } catch (fbErr) {
-                    console.warn('Firebase wipe error:', fbErr);
-                }
-
-                showToast(apiData.message || 'Database reset successfully.', 'success');
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 800);
-            } catch (err) {
-                showToast('Failed to reset database', 'error');
-                confirmResetBtn.disabled = false;
-                confirmResetBtn.textContent = 'Yes, Clear All Data';
-            }
+    // Top Header Add Employee button wiring
+    const openTopAddEmpBtn = document.getElementById('openTopAddEmployeeBtn');
+    if (openTopAddEmpBtn) {
+        openTopAddEmpBtn.addEventListener('click', () => {
+            if (adminAddEmpModal) adminAddEmpModal.classList.remove('hidden');
         });
     }
 });

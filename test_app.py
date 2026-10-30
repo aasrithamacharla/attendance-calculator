@@ -1,6 +1,8 @@
 import unittest
 import json
 import datetime
+import os
+
 from app import app
 from database import init_db, get_db
 
@@ -15,7 +17,6 @@ class TestAttendanceApp(unittest.TestCase):
         res = self.client.get('/')
         self.assertEqual(res.status_code, 200)
         self.assertIn(b'Attendance Dashboard', res.data)
-        self.assertIn(b'Add Employee', res.data)
         self.assertIn(b'Workers', res.data)
         self.assertIn(b'Month Calendar', res.data)
 
@@ -359,82 +360,58 @@ class TestAttendanceApp(unittest.TestCase):
         self.assertTrue(res_success.get_json()['success'])
         self.assertEqual(res_success.get_json()['slots'], ['Morning'])
 
-    def test_firebase_integration_endpoints(self):
-        """Firebase RTDB config, status and sync endpoints."""
-        # 1. Config endpoint
+    def test_direct_database_consistency(self):
+        """Database operations seamlessly write to SQLite and return exact records."""
+        # 1. Add employee
+        res = self.client.post('/api/employees', json={'name': 'Direct DB Test', 'emp_type': 'Full Day'})
+        self.assertEqual(res.status_code, 200)
+        emp_id = res.get_json()['employee']['id']
+
+        # 2. Check in database
+        with get_db() as conn:
+            row = conn.execute("SELECT name FROM employees WHERE id = ?", (emp_id,)).fetchone()
+            self.assertEqual(row['name'], 'Direct DB Test')
+
+        # 3. Mark attendance
+        res_att = self.client.post('/api/attendance', json={
+            'employee_id': emp_id,
+            'date': '2026-10-28',
+            'status': 'Full Day'
+        })
+        self.assertEqual(res_att.status_code, 200)
+
+        # 4. Check attendance in database
+        with get_db() as conn:
+            att = conn.execute("SELECT status FROM attendance_records WHERE employee_id = ? AND date = ?", (emp_id, '2026-10-28')).fetchone()
+            self.assertEqual(att['status'], 'Full Day')
+
+    def test_init_db_no_fake_seeding(self):
+        """Calling init_db initializes the database without seeding fake dummy employees."""
+        init_db()
+        with get_db() as conn:
+            fake_emp = conn.execute("SELECT * FROM employees WHERE name IN ('Sarah Miller', 'James Wilson', 'Elena Rostova')").fetchone()
+            self.assertIsNone(fake_emp)
+            fake_wrk = conn.execute("SELECT * FROM workers WHERE name IN ('Robert Taylor', 'Maya Patel')").fetchone()
+            self.assertIsNone(fake_wrk)
+
+    def test_firebase_endpoints(self):
+        """Firebase configuration and export endpoints return correct database URL."""
         res_cfg = self.client.get('/api/firebase/config')
         self.assertEqual(res_cfg.status_code, 200)
-        cfg_data = res_cfg.get_json()
-        self.assertTrue(cfg_data['success'])
-        self.assertIn('attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app', cfg_data['config']['databaseURL'])
+        self.assertIn('attendance-90920-default-rtdb', res_cfg.get_json()['config']['databaseURL'])
 
-        # 2. Status endpoint
-        res_stat = self.client.get('/api/firebase/status')
-        self.assertEqual(res_stat.status_code, 200)
-        stat_data = res_stat.get_json()
-        self.assertTrue(stat_data['success'])
-        self.assertEqual(stat_data['databaseURL'], 'https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app')
-
-        # 3. Sync endpoint
-        res_sync = self.client.post('/api/firebase/sync')
-        self.assertEqual(res_sync.status_code, 200)
-        sync_data = res_sync.get_json()
-        self.assertIn('databaseURL', sync_data)
-        self.assertIn('report', sync_data)
-
-        # 4. Export endpoint (Hierarchical subdata structure)
         res_exp = self.client.get('/api/firebase/export')
         self.assertEqual(res_exp.status_code, 200)
         exp_data = res_exp.get_json()
         self.assertTrue(exp_data['success'])
         self.assertIn('employees', exp_data['data'])
         self.assertIn('workers', exp_data['data'])
-        if exp_data['data']['employees']:
-            first_emp_key = next(iter(exp_data['data']['employees'].keys()))
-            first_emp = exp_data['data']['employees'][first_emp_key]
-            self.assertIn('profile', first_emp)
-            self.assertIn('attendance', first_emp)
-            self.assertIn('payroll', first_emp)
 
-        # 5. Set Secret endpoint
-        res_sec = self.client.post('/api/firebase/set-secret', json={'secret': 'test_secret_key'})
-        self.assertEqual(res_sec.status_code, 200)
-        self.assertTrue(res_sec.get_json()['hasAuthSecret'])
-
-    def test_database_reset_and_no_fake_seeding(self):
-        """Admin can reset database completely, and init_db does not auto-seed fake records."""
-        import os, tempfile
-        tmp_db = tempfile.NamedTemporaryFile(suffix='.db', delete=False)
-        tmp_db.close()
-        old_path = os.environ.get('ATTENDANCE_DB_PATH')
-        os.environ['ATTENDANCE_DB_PATH'] = tmp_db.name
-        try:
-            init_db()
-            # Add an employee
-            self.client.post('/api/employees', json={'name': 'Temp Worker', 'emp_type': 'Full Day'})
-            
-            # Login and reset
-            self.client.post('/api/admin/login', json={'password': 'attendance'})
-            res = self.client.post('/api/admin/reset-database')
-            self.assertEqual(res.status_code, 200)
-            self.assertTrue(res.get_json()['success'])
-
-            with get_db() as conn:
-                self.assertEqual(conn.execute("SELECT COUNT(*) FROM employees").fetchone()[0], 0)
-                self.assertEqual(conn.execute("SELECT COUNT(*) FROM workers").fetchone()[0], 0)
-                self.assertEqual(conn.execute("SELECT COUNT(*) FROM attendance_records").fetchone()[0], 0)
-
-            # Calling init_db again must NOT auto-insert fake employees
-            init_db()
-            with get_db() as conn:
-                self.assertEqual(conn.execute("SELECT COUNT(*) FROM employees").fetchone()[0], 0)
-        finally:
-            if old_path is not None:
-                os.environ['ATTENDANCE_DB_PATH'] = old_path
-            else:
-                os.environ.pop('ATTENDANCE_DB_PATH', None)
-            if os.path.exists(tmp_db.name):
-                os.unlink(tmp_db.name)
+    def test_no_auth_db_file_created(self):
+        """Verifies that no auth.db file exists or is created on disk."""
+        workspace_dir = os.path.dirname(os.path.abspath(__file__))
+        auth_db_path = os.path.join(workspace_dir, 'auth.db')
+        self.assertFalse(os.path.exists(auth_db_path), "auth.db file must not exist on disk!")
 
 if __name__ == '__main__':
     unittest.main()

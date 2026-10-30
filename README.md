@@ -53,7 +53,7 @@ A full-stack web application featuring direct access to a daily attendance roste
 - **Whole-Month Attendance Salary Locking**:
   - Total salary calculation is finalized **only after updating whole month attendance** for all days in the month.
   - When in progress, shows `Pending Attendance (X/Y days marked)` and displays estimated provisional salary.
-  - Admin can click `Force Preview All` to inspect provisional figures anytime.
+  - Admin Portal provides full salary management, leave deduction rules, payment ticking, and worker logs.
 - **Workers Fixed Payroll, Narration & Edit Worker**:
   - Fixed-salary workers who are exempt from attendance tracking.
   - Worker narration / description column.
