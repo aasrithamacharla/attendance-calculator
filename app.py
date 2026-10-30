@@ -62,9 +62,75 @@ def admin_required(f):
 def favicon():
     return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#6366f1"><path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/></svg>', 200, {'Content-Type': 'image/svg+xml'})
 
+def sync_from_firebase():
+    """Syncs in-memory cache directly from Firebase Realtime Database. Firebase is the ONLY source of truth."""
+    if os.environ.get('SKIP_FIREBASE_NETWORK') == '1':
+        return
+    try:
+        from firebase_db import _firebase_request
+        fb_data = _firebase_request('/', method='GET', timeout=3)
+        if isinstance(fb_data, dict) and 'error' not in fb_data:
+            with get_db() as conn:
+                conn.execute("DELETE FROM employees")
+                conn.execute("DELETE FROM workers")
+                conn.execute("DELETE FROM attendance_records")
+                conn.execute("DELETE FROM payroll_payments")
+
+                employees_map = fb_data.get('employees') or {}
+                if isinstance(employees_map, dict):
+                    for ek, ev in employees_map.items():
+                        if not isinstance(ev, dict): continue
+                        p = ev.get('profile') or {}
+                        try:
+                            emp_id = int(p.get('id') or str(ek).replace('emp_', ''))
+                        except Exception:
+                            continue
+                        conn.execute(
+                            "INSERT OR REPLACE INTO employees (id, name, salary, emp_type, narration, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                            (emp_id, p.get('name', f'Employee #{emp_id}'), float(p.get('salary', 30000.0)), p.get('emp_type', 'Full Day'), p.get('narration', ''), p.get('created_at', ''))
+                        )
+                        for d_str, att in (ev.get('attendance') or {}).items():
+                            if not isinstance(att, dict): continue
+                            slots = att.get('slots', [])
+                            slots_str = ','.join(slots) if isinstance(slots, list) else str(slots)
+                            conn.execute(
+                                "INSERT OR REPLACE INTO attendance_records (employee_id, date, status, notes, slots, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+                                (emp_id, d_str, att.get('status', 'Full Day'), att.get('notes', ''), slots_str, att.get('updated_at', ''))
+                            )
+                        for m, pay in (ev.get('payroll') or {}).items():
+                            if not isinstance(pay, dict): continue
+                            conn.execute(
+                                "INSERT OR REPLACE INTO payroll_payments (recipient_type, target_id, month, is_paid, paid_at) VALUES (?, ?, ?, ?, ?)",
+                                ('employee', emp_id, m, 1 if pay.get('is_paid') else 0, pay.get('paid_at', ''))
+                            )
+
+                workers_map = fb_data.get('workers') or {}
+                if isinstance(workers_map, dict):
+                    for wk, wv in workers_map.items():
+                        if not isinstance(wv, dict): continue
+                        p = wv.get('profile') or {}
+                        try:
+                            w_id = int(p.get('id') or str(wk).replace('worker_', ''))
+                        except Exception:
+                            continue
+                        conn.execute(
+                            "INSERT OR REPLACE INTO workers (id, name, role, salary, narration, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                            (w_id, p.get('name', f'Worker #{w_id}'), p.get('role', 'Worker'), float(p.get('salary', 20000.0)), p.get('narration', ''), p.get('created_at', ''))
+                        )
+                        for m, pay in (wv.get('payroll') or {}).items():
+                            if not isinstance(pay, dict): continue
+                            conn.execute(
+                                "INSERT OR REPLACE INTO payroll_payments (recipient_type, target_id, month, is_paid, paid_at) VALUES (?, ?, ?, ?, ?)",
+                                ('worker', w_id, m, 1 if pay.get('is_paid') else 0, pay.get('paid_at', ''))
+                            )
+                conn.commit()
+    except Exception:
+        pass
+
 # 1. Main Dashboard: Direct Access
 @app.route('/')
 def dashboard():
+    sync_from_firebase()
     selected_date = (request.args.get('date') or datetime.date.today().strftime('%Y-%m-%d')).strip()
     
     with get_db() as conn:
@@ -767,6 +833,7 @@ def admin_logout():
 @app.route('/admin')
 @admin_required
 def admin_portal():
+    sync_from_firebase()
     selected_month = (request.args.get('month') or datetime.date.today().strftime('%Y-%m')).strip()
     try:
         year, month_num = map(int, selected_month.split('-'))

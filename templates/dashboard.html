@@ -683,28 +683,37 @@ document.addEventListener('DOMContentLoaded', () => {
         return url;
     }
 
-    // Direct background sync of initial records to Firebase if empty
-    async function seedFirebaseIfEmpty() {
+    async function syncUiWithFirebase() {
         try {
-            const checkRes = await fetch(getFbUrl('employees?shallow=true'), { method: 'GET', mode: 'cors' });
-            const data = await checkRes.json();
-            if (!data || Object.keys(data).length === 0) {
-                const expRes = await fetch('/api/firebase/full-export');
-                const expJson = await expRes.json();
-                if (expJson && expJson.data) {
-                    await fetch(getFbUrl(), {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        mode: 'cors',
-                        body: JSON.stringify(expJson.data)
-                    });
+            const res = await fetch(getFbUrl('employees'), { method: 'GET', mode: 'cors' });
+            const fbEmps = await res.json();
+            const validEmpIds = new Set(fbEmps ? Object.keys(fbEmps).map(k => k.replace(/^emp_/, '')) : []);
+            
+            document.querySelectorAll('.employee-row').forEach(row => {
+                const eid = row.getAttribute('data-id');
+                if (!validEmpIds.has(eid)) {
+                    row.remove();
                 }
-            }
-        } catch (e) {
-            // Silently continue if network unavailable
-        }
+            });
+
+            const remainingRows = document.querySelectorAll('.employee-row').length;
+            const empBadge = document.getElementById('empCountBadge');
+            if (empBadge) empBadge.textContent = remainingRows;
+
+            const wRes = await fetch(getFbUrl('workers'), { method: 'GET', mode: 'cors' });
+            const fbWorkers = await wRes.json();
+            const validWorkerIds = new Set(fbWorkers ? Object.keys(fbWorkers).map(k => k.replace(/^worker_/, '')) : []);
+            document.querySelectorAll('#workersListContainer tr, #workersModalContainer tr').forEach(row => {
+                const wid = row.getAttribute('data-id');
+                if (wid && !validWorkerIds.has(wid)) {
+                    row.remove();
+                }
+            });
+            const wBadge = document.getElementById('workersCountBadge');
+            if (wBadge) wBadge.textContent = validWorkerIds.size;
+        } catch (e) {}
     }
-    seedFirebaseIfEmpty();
+    syncUiWithFirebase();
 
     async function syncAttendanceToFirebaseClient(empId, dateStr, status, slots = [], notes = '') {
         try {

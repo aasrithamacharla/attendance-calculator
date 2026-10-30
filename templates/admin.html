@@ -1006,6 +1006,35 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = `/admin?month=${encodeURIComponent(monthPicker.value)}`;
     });
 
+    async function syncAdminUiWithFirebase() {
+        try {
+            const res = await fetch('https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app/employees.json', { method: 'GET', mode: 'cors' });
+            const fbEmps = await res.json();
+            const validEmpIds = new Set(fbEmps ? Object.keys(fbEmps).map(k => k.replace(/^emp_/, '')) : []);
+
+            document.querySelectorAll('#payrollTableBody tr').forEach(row => {
+                const eid = row.getAttribute('data-emp-id');
+                if (eid && !validEmpIds.has(eid)) {
+                    row.remove();
+                }
+            });
+
+            const wRes = await fetch('https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app/workers.json', { method: 'GET', mode: 'cors' });
+            const fbWorkers = await wRes.json();
+            const validWorkerIds = new Set(fbWorkers ? Object.keys(fbWorkers).map(k => k.replace(/^worker_/, '')) : []);
+
+            document.querySelectorAll('#workersTableBody tr').forEach(row => {
+                const wid = row.getAttribute('data-worker-id');
+                if (wid && !validWorkerIds.has(wid)) {
+                    row.remove();
+                }
+            });
+
+            if (typeof updateOverallTotals === 'function') updateOverallTotals();
+        } catch (e) {}
+    }
+    syncAdminUiWithFirebase();
+
     function formatCurrency(num) {
         return num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
