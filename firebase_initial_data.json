@@ -493,6 +493,253 @@
         }
       },
       "payroll": {}
+    },
+    "emp_27": {
+      "profile": {
+        "id": 27,
+        "name": "Pooja Sharma",
+        "salary": 30000.0,
+        "emp_type": "Half Day",
+        "narration": "Morning half-day coordinator",
+        "created_at": "2026-10-30 10:22:56"
+      },
+      "attendance": {},
+      "payroll": {}
+    },
+    "emp_28": {
+      "profile": {
+        "id": 28,
+        "name": "Deselect User",
+        "salary": 30000.0,
+        "emp_type": "Full Day",
+        "narration": "",
+        "created_at": "2026-10-30 10:22:56"
+      },
+      "attendance": {},
+      "payroll": {}
+    },
+    "emp_31": {
+      "profile": {
+        "id": 31,
+        "name": "Note Employee",
+        "salary": 30000.0,
+        "emp_type": "Full Day",
+        "narration": "",
+        "created_at": "2026-10-30 10:22:56"
+      },
+      "attendance": {
+        "2026-10-15": {
+          "date": "2026-10-15",
+          "status": "Full Day",
+          "notes": "Attended external site client inspection",
+          "slots": [],
+          "updated_at": "2026-10-30 10:22:56"
+        }
+      },
+      "payroll": {}
+    },
+    "emp_32": {
+      "profile": {
+        "id": 32,
+        "name": "Direct DB Test",
+        "salary": 30000.0,
+        "emp_type": "Full Day",
+        "narration": "",
+        "created_at": "2026-10-30 10:22:56"
+      },
+      "attendance": {
+        "2026-10-28": {
+          "date": "2026-10-28",
+          "status": "Full Day",
+          "notes": "",
+          "slots": [],
+          "updated_at": "2026-10-30 10:22:56"
+        }
+      },
+      "payroll": {}
+    },
+    "emp_33": {
+      "profile": {
+        "id": 33,
+        "name": "Updated New Name",
+        "salary": 30000.0,
+        "emp_type": "Part Time",
+        "narration": "Consultant description and terms",
+        "created_at": "2026-10-30 10:22:56"
+      },
+      "attendance": {},
+      "payroll": {}
+    },
+    "emp_34": {
+      "profile": {
+        "id": 34,
+        "name": "Half Day Doubled Worker",
+        "salary": 30000.0,
+        "emp_type": "Half Day",
+        "narration": "Works mornings",
+        "created_at": "2026-10-30 10:22:56"
+      },
+      "attendance": {
+        "2026-11-02": {
+          "date": "2026-11-02",
+          "status": "Full Day",
+          "notes": "",
+          "slots": [],
+          "updated_at": "2026-10-30 10:22:56"
+        },
+        "2026-11-03": {
+          "date": "2026-11-03",
+          "status": "Full Day",
+          "notes": "",
+          "slots": [],
+          "updated_at": "2026-10-30 10:22:56"
+        },
+        "2026-11-04": {
+          "date": "2026-11-04",
+          "status": "Leave",
+          "notes": "",
+          "slots": [],
+          "updated_at": "2026-10-30 10:22:56"
+        }
+      },
+      "payroll": {}
+    },
+    "emp_35": {
+      "profile": {
+        "id": 35,
+        "name": "Complete Check Emp",
+        "salary": 30000.0,
+        "emp_type": "Full Day",
+        "narration": "",
+        "created_at": "2026-10-30 10:22:56"
+      },
+      "attendance": {
+        "2026-04-01": {
+          "date": "2026-04-01",
+          "status": "Full Day",
+          "notes": "",
+          "slots": [],
+          "updated_at": "2026-10-30 10:22:56"
+        },
+        "2026-04-02": {
+          "date": "2026-04-02",
+          "status": "Full Day",
+          "notes": "",
+          "slots": [],
+          "updated_at": "2026-10-30 10:22:56"
+        }
+      },
+      "payroll": {}
+    },
+    "emp_36": {
+      "profile": {
+        "id": 36,
+        "name": "Part Time Shift Worker",
+        "salary": 1000.0,
+        "emp_type": "Part Time",
+        "narration": "Shift consultant",
+        "created_at": "2026-10-30 10:22:56"
+      },
+      "attendance": {
+        "2026-09-01": {
+          "date": "2026-09-01",
+          "status": "Half Day",
+          "notes": "",
+          "slots": [],
+          "updated_at": "2026-10-30 10:22:56"
+        },
+        "2026-09-02": {
+          "date": "2026-09-02",
+          "status": "Full Day",
+          "notes": "",
+          "slots": [
+            "Morning"
+          ],
+          "updated_at": "2026-10-30 10:22:56"
+        },
+        "2026-09-03": {
+          "date": "2026-09-03",
+          "status": "Full Day",
+          "notes": "",
+          "slots": [
+            "Morning",
+            "Evening"
+          ],
+          "updated_at": "2026-10-30 10:22:56"
+        },
+        "2026-09-04": {
+          "date": "2026-09-04",
+          "status": "Full Day",
+          "notes": "",
+          "slots": [
+            "Morning",
+            "Afternoon",
+            "Evening"
+          ],
+          "updated_at": "2026-10-30 10:22:56"
+        }
+      },
+      "payroll": {}
+    },
+    "emp_37": {
+      "profile": {
+        "id": 37,
+        "name": "Mandatory Slot Worker",
+        "salary": 1500.0,
+        "emp_type": "Part Time",
+        "narration": "",
+        "created_at": "2026-10-30 10:22:56"
+      },
+      "attendance": {
+        "2026-10-27": {
+          "date": "2026-10-27",
+          "status": "Full Day",
+          "notes": "",
+          "slots": [
+            "Morning"
+          ],
+          "updated_at": "2026-10-30 10:22:56"
+        }
+      },
+      "payroll": {}
+    },
+    "emp_38": {
+      "profile": {
+        "id": 38,
+        "name": "Pay Employee",
+        "salary": 30000.0,
+        "emp_type": "Full Day",
+        "narration": "",
+        "created_at": "2026-10-30 10:22:56"
+      },
+      "attendance": {},
+      "payroll": {
+        "2026-10": {
+          "month": "2026-10",
+          "is_paid": true,
+          "paid_at": "2026-10-30 15:52:56"
+        }
+      }
+    },
+    "emp_39": {
+      "profile": {
+        "id": 39,
+        "name": "Sunday Test Emp",
+        "salary": 30000.0,
+        "emp_type": "Full Day",
+        "narration": "",
+        "created_at": "2026-10-30 10:22:56"
+      },
+      "attendance": {
+        "2026-10-26": {
+          "date": "2026-10-26",
+          "status": "Full Day",
+          "notes": "",
+          "slots": [],
+          "updated_at": "2026-10-30 10:22:56"
+        }
+      },
+      "payroll": {}
     }
   },
   "workers": {
@@ -551,17 +798,45 @@
         "created_at": "2026-10-30 09:50:03"
       },
       "payroll": {}
+    },
+    "worker_5": {
+      "profile": {
+        "id": 5,
+        "name": "Pay Worker",
+        "role": "Worker",
+        "salary": 18000.0,
+        "narration": "",
+        "created_at": "2026-10-30 10:22:56"
+      },
+      "payroll": {
+        "2026-10": {
+          "month": "2026-10",
+          "is_paid": true,
+          "paid_at": "2026-10-30 15:52:56"
+        }
+      }
+    },
+    "worker_6": {
+      "profile": {
+        "id": 6,
+        "name": "Gopal Sharma",
+        "role": "Senior Electrician",
+        "salary": 25000.0,
+        "narration": "Contract renewed with emergency on-call allowance",
+        "created_at": "2026-10-30 10:22:56"
+      },
+      "payroll": {}
     }
   },
   "metadata": {
     "organization_version": "2.0_hierarchical",
-    "exported_at": "2026-10-30T15:20:03.378445",
+    "exported_at": "2026-10-30T15:52:56.415361",
     "database_structure": "employees/emp_{id}/[profile, attendance, payroll]",
     "counts": {
-      "employees": 22,
-      "workers": 4,
-      "attendance": 26,
-      "payments": 4
+      "employees": 33,
+      "workers": 6,
+      "attendance": 39,
+      "payments": 6
     }
   }
 }

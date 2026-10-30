@@ -1093,8 +1093,9 @@ if __name__ == '__main__':
         except (IndexError, ValueError):
             pass
 
+    host = '0.0.0.0'
     print(f"\n==================================================")
-    print(f"🚀 Attendance Portal is running at http://127.0.0.1:{port}")
+    print(f"🚀 Attendance Portal is running on port {port}")
     print(f"🔑 Admin Password: attendance")
     print(f"==================================================\n")
-    app.run(host='127.0.0.1', port=port, debug=True)
+    app.run(host=host, port=port, debug=False)
