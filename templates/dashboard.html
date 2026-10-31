@@ -768,15 +768,16 @@ document.addEventListener('DOMContentLoaded', () => {
     async function syncWorkerToFirebaseClient(worker) {
         try {
             const cleanId = String(worker.id).replace(/^worker_/, '');
+            const wSal = (worker.salary !== undefined && worker.salary !== null && worker.salary !== '') ? Number(worker.salary) : 0;
             await fetch(getFbUrl(`workers/worker_${cleanId}/profile`), {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 mode: 'cors',
                 body: JSON.stringify({
                     id: parseInt(cleanId),
                     name: worker.name,
                     role: worker.role || 'Worker',
-                    salary: worker.salary || 20000,
+                    salary: wSal,
                     narration: worker.narration || '',
                     created_at: new Date().toISOString()
                 })

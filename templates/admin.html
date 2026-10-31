@@ -218,6 +218,7 @@
                         <tr class="hover:bg-slate-800/30 transition payroll-row" 
                             data-emp-id="{{ row.id }}" 
                             data-name="{{ row.name }}"
+                            data-salary="{{ row.salary }}"
                             data-emp-type="{{ row.emp_type }}"
                             data-narration="{{ row.narration }}"
                             data-full="{{ row.full_days }}" 
@@ -757,6 +758,23 @@
             </div>
 
             <div>
+                <label id="editEmpSalaryLabel" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Salary Amount (₹)
+                </label>
+                <div class="relative">
+                    <span class="absolute left-3.5 top-2.5 text-slate-400 font-semibold text-sm">₹</span>
+                    <input 
+                        type="number" 
+                        id="editEmpSalary" 
+                        step="any"
+                        min="0"
+                        placeholder="Enter salary amount..." 
+                        class="w-full pl-8 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
+                    />
+                </div>
+            </div>
+
+            <div>
                 <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
                     Narration / Description
                 </label>
@@ -892,14 +910,13 @@
 
             <div>
                 <label id="salaryLabelAdmin" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Monthly Salary (₹) *
+                    Monthly Salary (₹)
                 </label>
                 <input 
                     type="number" 
                     id="adminNewEmpSalary" 
-                    value="40000" 
-                    required 
-                    step="100" 
+                    placeholder="Enter salary amount..." 
+                    step="any" 
                     min="0" 
                     class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
                 />
@@ -967,13 +984,12 @@
                 />
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Fixed Monthly Salary (₹) *</label>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Fixed Monthly Salary (₹)</label>
                 <input 
                     type="number" 
                     id="adminWorkerSalaryInput" 
-                    value="25000" 
-                    required 
-                    step="500" 
+                    placeholder="Enter fixed salary amount..." 
+                    step="any" 
                     min="0" 
                     class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
                 />
@@ -1205,7 +1221,11 @@ document.addEventListener('DOMContentLoaded', () => {
         input.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                row.querySelector('.save-salary-btn').click();
+                const row = e.target.closest('tr');
+                if (row) {
+                    const saveBtn = row.querySelector('.save-salary-btn');
+                    if (saveBtn) saveBtn.click();
+                }
             }
         });
     });
@@ -1226,6 +1246,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await res.json();
                 if (data.success) {
                     showToast(data.message, 'success');
+                    row.setAttribute('data-salary', salary);
+                    try {
+                        const cleanEmpId = String(empId).replace(/^emp_/, '');
+                        await fetch(`https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app/employees/emp_${cleanEmpId}/profile.json`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            mode: 'cors',
+                            body: JSON.stringify({ salary: salary })
+                        });
+                    } catch (fbErr) {}
                     recalculateEmployeeRow(row);
                 } else {
                     showToast(data.message || 'Error updating salary', 'error');
@@ -1252,6 +1282,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await res.json();
                 if (data.success) {
                     showToast(data.message, 'success');
+                    row.setAttribute('data-salary', salary);
+                    try {
+                        const cleanWid = String(workerId).replace(/^worker_/, '');
+                        await fetch(`https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app/workers/worker_${cleanWid}/profile.json`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            mode: 'cors',
+                            body: JSON.stringify({ salary: salary })
+                        });
+                    } catch (fbErr) {}
                     row.querySelector('.worker-payout-cell').textContent = formatCurrency(salary);
                     updateOverallTotals();
                 } else {
@@ -1317,19 +1357,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-    // Edit Employee Modal (Name, Type, Narration)
+    // Edit Employee Modal (Name, Type, Salary, Narration)
     const editModal = document.getElementById('editEmployeeModal');
     const closeEditModalBtn = document.getElementById('closeEditEmployeeModalBtn');
     const cancelEditBtn = document.getElementById('cancelEditEmployeeBtn');
     const editForm = document.getElementById('editEmployeeForm');
     const editEmpId = document.getElementById('editEmpId');
     const editEmpName = document.getElementById('editEmpName');
+    const editEmpSalary = document.getElementById('editEmpSalary');
     const editEmpType = document.getElementById('editEmpType');
     const editEmpNarration = document.getElementById('editEmpNarration');
 
-    function openEditModal(empId, name, type, narration) {
+    function openEditModal(empId, name, salary, type, narration) {
         editEmpId.value = empId;
         editEmpName.value = name;
+        if (editEmpSalary) editEmpSalary.value = (salary !== undefined && salary !== null && salary !== '') ? salary : '';
         editEmpType.value = type || 'Full Day';
         editEmpNarration.value = narration || '';
         editModal.classList.remove('hidden');
@@ -1349,9 +1391,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const row = btn.closest('tr');
         const empId = row.getAttribute('data-emp-id');
         const name = row.getAttribute('data-name');
+        const salary = row.getAttribute('data-salary') || row.querySelector('.salary-input')?.value || '';
         const type = row.getAttribute('data-emp-type');
         const narration = row.getAttribute('data-narration');
-        openEditModal(empId, name, type, narration);
+        openEditModal(empId, name, salary, type, narration);
     });
 
     if (editForm) {
@@ -1359,36 +1402,46 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const empId = editEmpId.value;
             const name = editEmpName.value.trim();
+            const salaryVal = editEmpSalary ? editEmpSalary.value.trim() : '';
             const type = editEmpType.value;
             const narration = editEmpNarration.value.trim();
 
             if (!name) return;
 
+            const postPayload = {
+                employee_id: empId,
+                name: name,
+                emp_type: type,
+                narration: narration
+            };
+            if (salaryVal !== '') {
+                postPayload.salary = parseFloat(salaryVal) || 0;
+            }
+
             try {
                 const res = await fetch('/api/admin/employees/update', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        employee_id: empId,
-                        name: name,
-                        emp_type: type,
-                        narration: narration
-                    })
+                    body: JSON.stringify(postPayload)
                 });
 
                 const data = await res.json();
                 if (data.success) {
                     try {
                         const cleanId = String(empId).replace(/^emp_/, '');
+                        const fbPayload = {
+                            name: name,
+                            emp_type: type,
+                            narration: narration
+                        };
+                        if (salaryVal !== '') {
+                            fbPayload.salary = parseFloat(salaryVal) || 0;
+                        }
                         await fetch(`https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app/employees/emp_${cleanId}/profile.json`, {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
                             mode: 'cors',
-                            body: JSON.stringify({
-                                name: name,
-                                emp_type: type,
-                                narration: narration
-                            })
+                            body: JSON.stringify(fbPayload)
                         });
                     } catch (fbErr) {}
                     showToast(data.message, 'success');
@@ -1418,7 +1471,7 @@ document.addEventListener('DOMContentLoaded', () => {
         editWorkerId.value = wid;
         editWorkerName.value = name;
         editWorkerRole.value = role || 'Worker';
-        editWorkerSalary.value = salary || 20000;
+        editWorkerSalary.value = (salary !== undefined && salary !== null && salary !== '') ? salary : '';
         editWorkerNarration.value = narration || '';
         editWorkerModal.classList.remove('hidden');
         editWorkerName.focus();
@@ -1561,11 +1614,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (adminNewEmpType) {
         adminNewEmpType.addEventListener('change', () => {
             if (adminNewEmpType.value === 'Part Time') {
-                salaryLabelAdmin.textContent = 'Per Day Wage Rate (₹) *';
-                document.getElementById('adminNewEmpSalary').value = '1000';
+                salaryLabelAdmin.textContent = 'Per Day Wage Rate (₹)';
             } else {
-                salaryLabelAdmin.textContent = 'Monthly Salary (₹) *';
-                document.getElementById('adminNewEmpSalary').value = '35000';
+                salaryLabelAdmin.textContent = 'Monthly Salary (₹)';
             }
         });
     }
@@ -1593,7 +1644,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Direct reflection into Firebase Realtime Database
                     try {
                         const cleanId = String(data.employee.id).replace(/^emp_/, '');
-                        const parsedSalary = parseFloat(salary) || (empType === 'Part Time' ? 1000 : 30000);
+                        const parsedSalary = (salary !== '' && !isNaN(parseFloat(salary))) ? parseFloat(salary) : 0;
                         await fetch(`https://attendance-90920-default-rtdb.asia-southeast1.firebasedatabase.app/employees/emp_${cleanId}.json`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
@@ -1665,7 +1716,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     id: parseInt(cleanWid),
                                     name: name,
                                     role: role,
-                                    salary: parseFloat(salary) || 20000,
+                                    salary: (salary !== '' && !isNaN(parseFloat(salary))) ? parseFloat(salary) : 0,
                                     narration: narration,
                                     created_at: new Date().toISOString()
                                 },

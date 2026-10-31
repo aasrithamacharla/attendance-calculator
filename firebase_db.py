@@ -80,10 +80,10 @@ def check_connection():
 
 def sync_employee_to_firebase(emp_id, emp_data):
     """
-    Uploads or updates an employee's profile in Firebase Realtime Database:
+    Updates an employee's profile in Firebase Realtime Database without overwriting other fields:
     /employees/emp_{emp_id}/profile
     """
-    return _firebase_request(f"employees/emp_{emp_id}/profile", method='PUT', data=emp_data)
+    return _firebase_request(f"employees/emp_{emp_id}/profile", method='PATCH', data=emp_data)
 
 def delete_employee_from_firebase(emp_id):
     """
@@ -94,10 +94,10 @@ def delete_employee_from_firebase(emp_id):
 
 def sync_worker_to_firebase(worker_id, worker_data):
     """
-    Uploads or updates a worker's profile in Firebase Realtime Database:
+    Updates a worker's profile in Firebase Realtime Database without overwriting other fields:
     /workers/worker_{worker_id}/profile
     """
-    return _firebase_request(f"workers/worker_{worker_id}/profile", method='PUT', data=worker_data)
+    return _firebase_request(f"workers/worker_{worker_id}/profile", method='PATCH', data=worker_data)
 
 def delete_worker_from_firebase(worker_id):
     """

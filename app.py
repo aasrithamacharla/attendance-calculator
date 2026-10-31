@@ -85,9 +85,14 @@ def sync_from_firebase():
                             emp_id = int(p.get('id') or str(ek).replace('emp_', ''))
                         except Exception:
                             continue
+                        p_sal = p.get('salary')
+                        try:
+                            sal_val = float(p_sal) if p_sal is not None and str(p_sal).strip() != '' else 0.0
+                        except (ValueError, TypeError):
+                            sal_val = 0.0
                         conn.execute(
                             "INSERT OR REPLACE INTO employees (id, name, salary, emp_type, narration, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                            (emp_id, p.get('name', f'Employee #{emp_id}'), float(p.get('salary', 30000.0)), p.get('emp_type', 'Full Day'), p.get('narration', ''), p.get('created_at', ''))
+                            (emp_id, p.get('name', f'Employee #{emp_id}'), sal_val, p.get('emp_type', 'Full Day'), p.get('narration', ''), p.get('created_at', ''))
                         )
                         for d_str, att in (ev.get('attendance') or {}).items():
                             if not isinstance(att, dict): continue
@@ -113,9 +118,14 @@ def sync_from_firebase():
                             w_id = int(p.get('id') or str(wk).replace('worker_', ''))
                         except Exception:
                             continue
+                        w_sal = p.get('salary')
+                        try:
+                            wsal_val = float(w_sal) if w_sal is not None and str(w_sal).strip() != '' else 0.0
+                        except (ValueError, TypeError):
+                            wsal_val = 0.0
                         conn.execute(
                             "INSERT OR REPLACE INTO workers (id, name, role, salary, narration, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                            (w_id, p.get('name', f'Worker #{w_id}'), p.get('role', 'Worker'), float(p.get('salary', 20000.0)), p.get('narration', ''), p.get('created_at', ''))
+                            (w_id, p.get('name', f'Worker #{w_id}'), p.get('role', 'Worker'), wsal_val, p.get('narration', ''), p.get('created_at', ''))
                         )
                         for m, pay in (wv.get('payroll') or {}).items():
                             if not isinstance(pay, dict): continue
@@ -506,13 +516,10 @@ def add_employee():
         emp_type = 'Full Day'
 
     salary = data.get('salary')
-    if salary is None:
-        salary = 1000.0 if emp_type == 'Part Time' else 30000.0
-    else:
-        try:
-            salary = float(salary)
-        except (ValueError, TypeError):
-            salary = 1000.0 if emp_type == 'Part Time' else 30000.0
+    try:
+        salary = float(salary) if salary is not None and str(salary).strip() != '' else 0.0
+    except (ValueError, TypeError):
+        salary = 0.0
         
     if not name:
         return jsonify({'success': False, 'message': 'Employee name is required.'}), 400
@@ -580,17 +587,38 @@ def update_employee_details():
     if emp_type not in ['Full Day', 'Half Day', 'Part Time']:
         emp_type = 'Full Day'
 
+    salary = data.get('salary')
+    has_salary = salary is not None and str(salary).strip() != ''
+    salary_val = 0.0
+    if has_salary:
+        try:
+            salary_val = float(salary)
+        except (ValueError, TypeError):
+            has_salary = False
+
     with get_db() as conn:
-        emp = conn.execute("SELECT id FROM employees WHERE id = ?", (emp_id,)).fetchone()
+        emp = conn.execute("SELECT id, salary FROM employees WHERE id = ?", (emp_id,)).fetchone()
         if not emp:
             return jsonify({'success': False, 'message': 'Employee not found.'}), 404
-        conn.execute(
-            "UPDATE employees SET name = ?, emp_type = ?, narration = ? WHERE id = ?",
-            (name, emp_type, narration, emp_id)
-        )
+
+        if has_salary:
+            final_salary = salary_val
+            conn.execute(
+                "UPDATE employees SET name = ?, salary = ?, emp_type = ?, narration = ? WHERE id = ?",
+                (name, final_salary, emp_type, narration, emp_id)
+            )
+            sync_payload = {'id': emp_id, 'name': name, 'salary': final_salary, 'emp_type': emp_type, 'narration': narration}
+        else:
+            final_salary = float(emp['salary'] or 0.0)
+            conn.execute(
+                "UPDATE employees SET name = ?, emp_type = ?, narration = ? WHERE id = ?",
+                (name, emp_type, narration, emp_id)
+            )
+            sync_payload = {'id': emp_id, 'name': name, 'emp_type': emp_type, 'narration': narration}
+
         conn.commit()
         persist_to_json()
-        async_sync_employee(emp_id, {'id': emp_id, 'name': name, 'emp_type': emp_type, 'narration': narration})
+        async_sync_employee(emp_id, sync_payload)
 
     return jsonify({
         'success': True,
@@ -598,6 +626,7 @@ def update_employee_details():
         'employee': {
             'id': emp_id,
             'name': name,
+            'salary': final_salary,
             'emp_type': emp_type,
             'narration': narration
         }
@@ -652,11 +681,11 @@ def add_worker():
     name = (data.get('name') or '').strip()
     role = (data.get('role') or 'Worker').strip()
     narration = (data.get('narration') or '').strip()
-    salary = data.get('salary', 20000.0)
+    salary = data.get('salary')
     try:
-        salary = float(salary)
+        salary = float(salary) if salary is not None and str(salary).strip() != '' else 0.0
     except (ValueError, TypeError):
-        salary = 20000.0
+        salary = 0.0
 
     if not name:
         return jsonify({'success': False, 'message': 'Worker name is required.'}), 400
@@ -684,6 +713,7 @@ def add_worker():
             'id': worker_id,
             'name': name,
             'role': role,
+            'salary': salary,
             'narration': narration
         }
     })
@@ -696,28 +726,42 @@ def update_worker_details():
     name = (data.get('name') or '').strip()
     role = (data.get('role') or 'Worker').strip()
     narration = (data.get('narration') or '').strip()
-    try:
-        salary = float(data.get('salary', 20000.0))
-    except (ValueError, TypeError):
-        salary = 20000.0
 
     if not worker_id or not name:
         return jsonify({'success': False, 'message': 'Worker ID and name are required.'}), 400
 
+    salary = data.get('salary')
+    has_salary = salary is not None and str(salary).strip() != ''
+    salary_val = 0.0
+    if has_salary:
+        try:
+            salary_val = float(salary)
+        except (ValueError, TypeError):
+            has_salary = False
+
     with get_db() as conn:
-        conn.execute('''
-            UPDATE workers SET name = ?, role = ?, salary = ?, narration = ?
-            WHERE id = ?
-        ''', (name, role, salary, narration, worker_id))
+        worker = conn.execute("SELECT id, salary FROM workers WHERE id = ?", (worker_id,)).fetchone()
+        if not worker:
+            return jsonify({'success': False, 'message': 'Worker not found.'}), 404
+
+        if has_salary:
+            final_salary = salary_val
+            conn.execute('''
+                UPDATE workers SET name = ?, role = ?, salary = ?, narration = ?
+                WHERE id = ?
+            ''', (name, role, final_salary, narration, worker_id))
+            sync_payload = {'id': worker_id, 'name': name, 'role': role, 'salary': final_salary, 'narration': narration}
+        else:
+            final_salary = float(worker['salary'] or 0.0)
+            conn.execute('''
+                UPDATE workers SET name = ?, role = ?, narration = ?
+                WHERE id = ?
+            ''', (name, role, narration, worker_id))
+            sync_payload = {'id': worker_id, 'name': name, 'role': role, 'narration': narration}
+
         conn.commit()
         persist_to_json()
-        async_sync_worker(worker_id, {
-            'id': worker_id,
-            'name': name,
-            'role': role,
-            'salary': salary,
-            'narration': narration
-        })
+        async_sync_worker(worker_id, sync_payload)
 
     return jsonify({
         'success': True,
@@ -726,7 +770,7 @@ def update_worker_details():
             'id': worker_id,
             'name': name,
             'role': role,
-            'salary': salary,
+            'salary': final_salary,
             'narration': narration
         }
     })

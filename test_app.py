@@ -413,5 +413,71 @@ class TestAttendanceApp(unittest.TestCase):
         auth_db_path = os.path.join(workspace_dir, 'auth.db')
         self.assertFalse(os.path.exists(auth_db_path), "auth.db file must not exist on disk!")
 
+    def test_salary_isolation_and_no_auto_salary(self):
+        """Verify salary is strictly recorded without auto-defaults and editing one field does not alter another."""
+        # 1. Add employee without salary -> salary is strictly 0.0 (no auto 30000 or 1000)
+        res1 = self.client.post('/api/employees', json={'name': 'Dev NoSalary', 'emp_type': 'Full Day'})
+        emp1_id = res1.get_json()['employee']['id']
+        with get_db() as conn:
+            row1 = conn.execute("SELECT salary FROM employees WHERE id = ?", (emp1_id,)).fetchone()
+            self.assertEqual(row1['salary'], 0.0)
+
+        # 2. Add employee with specific salary (45500.0)
+        res2 = self.client.post('/api/employees', json={'name': 'Kavya Rao', 'salary': 45500.0, 'emp_type': 'Full Day', 'narration': 'Lead'})
+        emp2_id = res2.get_json()['employee']['id']
+        with get_db() as conn:
+            row2 = conn.execute("SELECT salary, narration FROM employees WHERE id = ?", (emp2_id,)).fetchone()
+            self.assertEqual(row2['salary'], 45500.0)
+            self.assertEqual(row2['narration'], 'Lead')
+
+        # 3. Edit name and narration only -> salary must strictly remain 45500.0
+        self.client.post('/api/admin/login', json={'password': 'attendance'})
+        upd = self.client.post('/api/admin/employees/update', json={
+            'employee_id': emp2_id,
+            'name': 'Kavya Rao Updated',
+            'emp_type': 'Full Day',
+            'narration': 'Senior Lead'
+        })
+        self.assertTrue(upd.get_json()['success'])
+        with get_db() as conn:
+            row_upd = conn.execute("SELECT name, salary, narration FROM employees WHERE id = ?", (emp2_id,)).fetchone()
+            self.assertEqual(row_upd['name'], 'Kavya Rao Updated')
+            self.assertEqual(row_upd['salary'], 45500.0, "Salary must not be altered when updating employee name/narration!")
+            self.assertEqual(row_upd['narration'], 'Senior Lead')
+
+        # 4. Edit salary directly via /api/admin/salary -> name, type, and narration must remain unchanged
+        sal_upd = self.client.post('/api/admin/salary', json={
+            'employee_id': emp2_id,
+            'salary': 52000.0
+        })
+        self.assertTrue(sal_upd.get_json()['success'])
+        with get_db() as conn:
+            row_sal = conn.execute("SELECT name, salary, narration, emp_type FROM employees WHERE id = ?", (emp2_id,)).fetchone()
+            self.assertEqual(row_sal['salary'], 52000.0)
+            self.assertEqual(row_sal['name'], 'Kavya Rao Updated', "Name must not be altered when updating salary!")
+            self.assertEqual(row_sal['narration'], 'Senior Lead', "Narration must not be altered when updating salary!")
+
+        # 5. Add worker without salary -> salary is strictly 0.0 (no auto 20000 or 25000)
+        res_w = self.client.post('/api/workers', json={'name': 'Worker NoSalary', 'role': 'Maintenance'})
+        w_id = res_w.get_json()['worker']['id']
+        with get_db() as conn:
+            w_row = conn.execute("SELECT salary FROM workers WHERE id = ?", (w_id,)).fetchone()
+            self.assertEqual(w_row['salary'], 0.0, "Worker salary must default to 0.0, not an automatic amount!")
+
+        # 6. Update worker details without salary -> salary remains preserved
+        with get_db() as conn:
+            conn.execute("UPDATE workers SET salary = 18500.0 WHERE id = ?", (w_id,))
+            conn.commit()
+        upd_w = self.client.post('/api/admin/workers/update', json={
+            'worker_id': w_id,
+            'name': 'Worker Renamed',
+            'role': 'Supervisor'
+        })
+        self.assertTrue(upd_w.get_json()['success'])
+        with get_db() as conn:
+            w_upd = conn.execute("SELECT name, salary, role FROM workers WHERE id = ?", (w_id,)).fetchone()
+            self.assertEqual(w_upd['name'], 'Worker Renamed')
+            self.assertEqual(w_upd['salary'], 18500.0, "Worker salary must not be altered when updating name/role!")
+
 if __name__ == '__main__':
     unittest.main()

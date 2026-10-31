@@ -35,7 +35,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS employees (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
-                salary REAL DEFAULT 30000.0,
+                salary REAL DEFAULT 0.0,
                 emp_type TEXT DEFAULT 'Full Day',
                 narration TEXT DEFAULT '',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -47,7 +47,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 role TEXT DEFAULT 'Worker',
-                salary REAL DEFAULT 20000.0,
+                salary REAL DEFAULT 0.0,
                 narration TEXT DEFAULT '',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
