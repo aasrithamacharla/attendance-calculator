@@ -46,3 +46,7 @@ ENV/
 # Database files
 *.db
 auth.db
+
+# Project copies / archives
+attendance-manager-copy/
+attendance-manager-copy.zip

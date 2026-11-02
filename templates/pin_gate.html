@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block title %}Enter PIN | Attendance Portal{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8">
+    <div class="w-full max-w-md flex flex-col justify-center">
+        <!-- Brand Icon -->
+        <div class="flex items-center justify-center mb-6 text-center">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 via-indigo-600 to-amber-500 flex items-center justify-center shadow-xl shadow-brand-500/20 border border-white/10">
+                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+            </div>
+        </div>
+
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
+                AJ Attendance <span class="text-xs px-2.5 py-1 rounded-full bg-brand-500/20 text-brand-300 font-semibold border border-brand-500/30">Dashboard</span>
+            </h1>
+            <p class="text-sm text-slate-400 mt-1.5">Enter security PIN to access the website</p>
+        </div>
+
+        <!-- Glass Card Container -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+            <form id="sitePinForm" class="space-y-6">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3 text-center">
+                        4-Digit Access PIN
+                    </label>
+
+                    <!-- 4 Digit Input Boxes -->
+                    <div class="flex justify-center gap-3" id="pinBoxesContainer">
+                        <input type="password" inputmode="numeric" maxlength="1" autofocus class="site-pin-box w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl sm:text-3xl font-bold bg-slate-950/80 border-2 border-slate-700 rounded-2xl text-amber-400 focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 transition shadow-inner" />
+                        <input type="password" inputmode="numeric" maxlength="1" class="site-pin-box w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl sm:text-3xl font-bold bg-slate-950/80 border-2 border-slate-700 rounded-2xl text-amber-400 focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 transition shadow-inner" />
+                        <input type="password" inputmode="numeric" maxlength="1" class="site-pin-box w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl sm:text-3xl font-bold bg-slate-950/80 border-2 border-slate-700 rounded-2xl text-amber-400 focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 transition shadow-inner" />
+                        <input type="password" inputmode="numeric" maxlength="1" class="site-pin-box w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl sm:text-3xl font-bold bg-slate-950/80 border-2 border-slate-700 rounded-2xl text-amber-400 focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 transition shadow-inner" />
+                    </div>
+                    <input type="hidden" id="siteFullPin" name="pin" />
+
+                    <!-- Show/Hide PIN Toggle -->
+                    <div class="flex items-center justify-end mt-3">
+                        <button 
+                            type="button" 
+                            id="togglePinVisibilityBtn" 
+                            class="text-xs text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5 py-1 px-2 rounded-lg hover:bg-slate-800"
+                        >
+                            <svg id="eyeIcon" class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            <span id="togglePinText">Show PIN</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="pinAlert" class="hidden p-3 rounded-xl bg-rose-950/70 border border-rose-500/30 text-rose-300 text-xs text-center font-medium"></div>
+
+                <button 
+                    type="submit" 
+                    id="submitPinBtn"
+                    class="w-full py-3.5 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 active:scale-[0.99] transition-all duration-200 shadow-lg shadow-brand-600/30 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+                    <span>Unlock Website</span>
+                </button>
+            </form>
+        </div>
+        
+        <p class="text-center text-xs text-slate-500 mt-6">
+            Attendance & Payroll Management System &bull; Protected Access
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const boxes = document.querySelectorAll('.site-pin-box');
+    const fullPinInput = document.getElementById('siteFullPin');
+    const form = document.getElementById('sitePinForm');
+    const alertBox = document.getElementById('pinAlert');
+    const toggleBtn = document.getElementById('togglePinVisibilityBtn');
+    const eyeIcon = document.getElementById('eyeIcon');
+    const toggleText = document.getElementById('togglePinText');
+
+    function getPin() {
+        let p = '';
+        boxes.forEach(b => p += b.value);
+        return p;
+    }
+
+    function setPin(val) {
+        const digits = String(val).slice(0, 4).split('');
+        boxes.forEach((b, i) => b.value = digits[i] || '');
+        fullPinInput.value = val;
+    }
+
+    if (boxes[0]) boxes[0].focus();
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            const isPassword = boxes[0].type === 'password';
+            boxes.forEach(b => b.type = isPassword ? 'text' : 'password');
+            toggleText.textContent = isPassword ? 'Hide PIN' : 'Show PIN';
+            if (isPassword) {
+                eyeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/>';
+            } else {
+                eyeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>';
+            }
+        });
+    }
+
+    boxes.forEach((box, i) => {
+        box.addEventListener('input', (e) => {
+            const clean = e.target.value.replace(/[^0-9]/g, '');
+            e.target.value = clean ? clean[clean.length - 1] : '';
+            if (e.target.value && i < boxes.length - 1) {
+                boxes[i + 1].focus();
+            }
+            const pinVal = getPin();
+            fullPinInput.value = pinVal;
+            if (pinVal.length === 4) {
+                form.dispatchEvent(new Event('submit'));
+            }
+        });
+
+        box.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && !box.value && i > 0) {
+                boxes[i - 1].focus();
+            }
+        });
+
+        box.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text').trim();
+            const digits = text.replace(/[^0-9]/g, '').slice(0, 4);
+            setPin(digits);
+            if (digits.length === 4) {
+                form.dispatchEvent(new Event('submit'));
+            }
+        });
+    });
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        alertBox.classList.add('hidden');
+        const pin = getPin() || fullPinInput.value;
+
+        if (pin.length < 4) {
+            alertBox.textContent = 'Please enter all 4 digits of the PIN.';
+            alertBox.classList.remove('hidden');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/site/verify-pin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: pin })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast('Website unlocked!', 'success');
+                window.location.href = data.redirect || '/';
+            } else {
+                alertBox.textContent = data.message || 'Incorrect PIN. Try again.';
+                alertBox.classList.remove('hidden');
+                setPin('');
+                boxes[0]?.focus();
+            }
+        } catch (err) {
+            alertBox.textContent = 'Network error verifying PIN.';
+            alertBox.classList.remove('hidden');
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -30,6 +30,25 @@ app = Flask(
 )
 app.secret_key = os.environ.get('SECRET_KEY', 'attendance-portal-secret-key-2026-secure')
 
+SITE_PIN = os.environ.get('SITE_PIN', '5473')
+
+@app.before_request
+def check_site_access():
+    # In testing mode without explicit enforce header, allow
+    if app.config.get('TESTING') and not request.headers.get('X-Test-Enforce-Auth'):
+        return
+    # Allow static assets and favicon
+    if request.path.startswith('/static') or request.path == '/favicon.ico':
+        return
+    # Allow login, lock, and verification endpoints, as well as root
+    if request.path in ['/', '/login', '/auth', '/api/site/verify-pin', '/api/login', '/api/admin/login', '/lock', '/logout']:
+        return
+    # Enforce PIN unlock for any other protected endpoints
+    if not session.get('site_unlocked'):
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.path.startswith('/api/'):
+            return jsonify({'success': False, 'message': 'PIN authentication required.', 'redirect': '/'}), 401
+        return redirect(url_for('dashboard'))
+
 def to_dmy(val):
     """Convert YYYY-MM-DD or date object to DD/MM/YYYY."""
     if not val:
@@ -69,6 +88,16 @@ def sync_from_firebase():
     try:
         from firebase_db import _firebase_request
         fb_data = _firebase_request('/', method='GET', timeout=3)
+        if fb_data is None or fb_data == {}:
+            # Firebase database is empty: clear all local tables so local strictly mirrors empty Firebase
+            with get_db() as conn:
+                conn.execute("DELETE FROM employees")
+                conn.execute("DELETE FROM workers")
+                conn.execute("DELETE FROM attendance_records")
+                conn.execute("DELETE FROM payroll_payments")
+                conn.commit()
+            return
+
         if isinstance(fb_data, dict) and 'error' not in fb_data:
             with get_db() as conn:
                 conn.execute("DELETE FROM employees")
@@ -137,9 +166,23 @@ def sync_from_firebase():
     except Exception:
         pass
 
-# 1. Main Dashboard: Direct Access
-@app.route('/')
+# 1. Main Dashboard: Protected by Security PIN Gate
+@app.route('/', methods=['GET', 'POST'])
 def dashboard():
+    error = None
+    if request.method == 'POST':
+        pin = (request.form.get('pin') or request.form.get('password') or '').strip()
+        if pin == SITE_PIN:
+            session['site_unlocked'] = True
+            if request.form.get('remember'):
+                session.permanent = True
+            return redirect(url_for('dashboard'))
+        else:
+            error = 'Incorrect Security PIN. Please try again.'
+
+    if not session.get('site_unlocked'):
+        return render_template('auth.html', error=error)
+
     sync_from_firebase()
     selected_date = (request.args.get('date') or datetime.date.today().strftime('%Y-%m-%d')).strip()
     
@@ -203,10 +246,38 @@ def dashboard():
         firebase_database_url=FIREBASE_DATABASE_URL
     )
 
-@app.route('/auth')
-@app.route('/login')
+@app.route('/lock', endpoint='lock')
+@app.route('/logout', endpoint='logout')
+def lock_site():
+    session.pop('site_unlocked', None)
+    session.pop('is_admin', None)
+    return redirect(url_for('dashboard'))
+
+@app.route('/auth', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def legacy_auth_redirect():
     return redirect(url_for('dashboard'))
+
+@app.route('/api/site/verify-pin', methods=['POST'])
+@app.route('/api/login', methods=['POST'])
+def verify_site_pin():
+    data = request.get_json(silent=True) or request.form or {}
+    entered_pin = str(data.get('pin') or data.get('password') or '').strip()
+    
+    if entered_pin == SITE_PIN:
+        session['site_unlocked'] = True
+        if data.get('remember'):
+            session.permanent = True
+        return jsonify({
+            'success': True,
+            'message': 'PIN verified successfully!',
+            'redirect': url_for('dashboard')
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'message': 'Incorrect Security PIN. Please try again.'
+        }), 401
 
 # 2. Record or Deselect daily attendance for an employee
 @app.route('/api/attendance', methods=['POST'])
@@ -1188,6 +1259,73 @@ def sync_to_firebase():
         'error': report.get('error'),
         'message': msg
     })
+
+@app.route('/api/firebase/client-sync', methods=['POST'])
+def client_sync_from_firebase():
+    """Accepts Firebase snapshot data from client browser and updates local database cache."""
+    data = request.get_json(silent=True) or {}
+    employees_map = data.get('employees') or {}
+    workers_map = data.get('workers') or {}
+    
+    with get_db() as conn:
+        if isinstance(employees_map, dict):
+            for ek, ev in employees_map.items():
+                if not isinstance(ev, dict): continue
+                p = ev.get('profile') or {}
+                try:
+                    emp_id = int(p.get('id') or str(ek).replace('emp_', ''))
+                except Exception:
+                    continue
+                p_sal = p.get('salary')
+                try:
+                    sal_val = float(p_sal) if p_sal is not None and str(p_sal).strip() != '' else 0.0
+                except (ValueError, TypeError):
+                    sal_val = 0.0
+                conn.execute(
+                    "INSERT OR REPLACE INTO employees (id, name, salary, emp_type, narration, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                    (emp_id, p.get('name', f'Employee #{emp_id}'), sal_val, p.get('emp_type', 'Full Day'), p.get('narration', ''), p.get('created_at', ''))
+                )
+                for d_str, att in (ev.get('attendance') or {}).items():
+                    if not isinstance(att, dict): continue
+                    slots = att.get('slots', [])
+                    slots_str = ','.join(slots) if isinstance(slots, list) else str(slots)
+                    conn.execute(
+                        "INSERT OR REPLACE INTO attendance_records (employee_id, date, status, notes, slots, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+                        (emp_id, d_str, att.get('status', 'Full Day'), att.get('notes', ''), slots_str, att.get('updated_at', ''))
+                    )
+                for m, pay in (ev.get('payroll') or {}).items():
+                    if not isinstance(pay, dict): continue
+                    conn.execute(
+                        "INSERT OR REPLACE INTO payroll_payments (recipient_type, target_id, month, is_paid, paid_at) VALUES (?, ?, ?, ?, ?)",
+                        ('employee', emp_id, m, 1 if pay.get('is_paid') else 0, pay.get('paid_at', ''))
+                    )
+
+        if isinstance(workers_map, dict):
+            for wk, wv in workers_map.items():
+                if not isinstance(wv, dict): continue
+                p = wv.get('profile') or {}
+                try:
+                    w_id = int(p.get('id') or str(wk).replace('worker_', ''))
+                except Exception:
+                    continue
+                w_sal = p.get('salary')
+                try:
+                    wsal_val = float(w_sal) if w_sal is not None and str(w_sal).strip() != '' else 0.0
+                except (ValueError, TypeError):
+                    wsal_val = 0.0
+                conn.execute(
+                    "INSERT OR REPLACE INTO workers (id, name, role, salary, narration, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                    (w_id, p.get('name', f'Worker #{w_id}'), p.get('role', 'Worker'), wsal_val, p.get('narration', ''), p.get('created_at', ''))
+                )
+                for m, pay in (wv.get('payroll') or {}).items():
+                    if not isinstance(pay, dict): continue
+                    conn.execute(
+                        "INSERT OR REPLACE INTO payroll_payments (recipient_type, target_id, month, is_paid, paid_at) VALUES (?, ?, ?, ?, ?)",
+                        ('worker', w_id, m, 1 if pay.get('is_paid') else 0, pay.get('paid_at', ''))
+                    )
+        conn.commit()
+
+    return jsonify({'success': True, 'message': 'Synchronized successfully'})
 
 if __name__ == '__main__':
     import sys

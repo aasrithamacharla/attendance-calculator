@@ -11,14 +11,39 @@ class TestAttendanceApp(unittest.TestCase):
         init_db()
         app.config['TESTING'] = True
         self.client = app.test_client()
+        with self.client.session_transaction() as sess:
+            sess['site_unlocked'] = True
 
-    def test_direct_dashboard_access(self):
-        """Dashboard must be accessible directly without login."""
-        res = self.client.get('/')
+    def test_site_pin_gate_access(self):
+        """Website requires PIN 5473 to access; once unlocked, renders dashboard; can lock again."""
+        fresh_client = app.test_client()
+        # 1. Accessing without PIN shows PIN gate with PIN hidden
+        res = fresh_client.get('/')
         self.assertEqual(res.status_code, 200)
-        self.assertIn(b'Attendance Dashboard', res.data)
-        self.assertIn(b'Workers', res.data)
-        self.assertIn(b'Month Calendar', res.data)
+        self.assertIn(b'4-Digit Access PIN', res.data)
+        self.assertNotIn(b'5473', res.data, "Security PIN must be hidden from lock screen!")
+        self.assertNotIn(b'Attendance Dashboard', res.data)
+
+        # 2. Submitting incorrect PIN fails
+        res_bad = fresh_client.post('/api/site/verify-pin', json={'pin': '0000'})
+        self.assertEqual(res_bad.status_code, 401)
+        self.assertFalse(res_bad.get_json()['success'])
+
+        # 3. Submitting correct PIN 5473 succeeds
+        res_ok = fresh_client.post('/api/site/verify-pin', json={'pin': '5473'})
+        self.assertEqual(res_ok.status_code, 200)
+        self.assertTrue(res_ok.get_json()['success'])
+
+        # 4. Now accessing '/' renders dashboard
+        res_dash = fresh_client.get('/')
+        self.assertEqual(res_dash.status_code, 200)
+        self.assertIn(b'AJ Attendance Dashboard', res_dash.data)
+        self.assertIn(b'Workers', res_dash.data)
+
+        # 5. Lock website
+        res_lock = fresh_client.get('/lock', follow_redirects=True)
+        self.assertEqual(res_lock.status_code, 200)
+        self.assertIn(b'4-Digit Access PIN', res_lock.data)
 
     def test_add_employee_with_types(self):
         """Add employee supports Full Day, Half Day, Part Time with optional narration."""
@@ -60,7 +85,8 @@ class TestAttendanceApp(unittest.TestCase):
         """Option to deselect attendance option back to unmarked."""
         c = self.client.post('/api/employees', json={'name': 'Deselect User'})
         emp_id = c.get_json()['employee']['id']
-        today = datetime.date.today().strftime('%Y-%m-%d')
+        # Use a fixed weekday (Wednesday) to avoid Sunday attendance blocking
+        today = "2026-10-14"
 
         # Mark Full Day
         res1 = self.client.post('/api/attendance', json={
@@ -478,6 +504,28 @@ class TestAttendanceApp(unittest.TestCase):
             w_upd = conn.execute("SELECT name, salary, role FROM workers WHERE id = ?", (w_id,)).fetchone()
             self.assertEqual(w_upd['name'], 'Worker Renamed')
             self.assertEqual(w_upd['salary'], 18500.0, "Worker salary must not be altered when updating name/role!")
+
+    def test_admin_login_password_only_and_pin_rejected(self):
+        """Verify Admin Portal ONLY allows password attendance and rejects PIN."""
+        # 1. Login with password 'attendance' succeeds
+        res_pw = self.client.post('/api/admin/login', json={'password': 'attendance'})
+        self.assertEqual(res_pw.status_code, 200)
+        self.assertTrue(res_pw.get_json()['success'])
+
+        # 2. Login with PIN 5473 is rejected for admin portal (PIN is website-only)
+        res_pin = self.client.post('/api/admin/login', json={'pin': '5473'})
+        self.assertEqual(res_pin.status_code, 401)
+        self.assertFalse(res_pin.get_json()['success'])
+
+        # 3. Login with password '5473' is rejected for admin portal
+        res_pin_pw = self.client.post('/api/admin/login', json={'password': '5473'})
+        self.assertEqual(res_pin_pw.status_code, 401)
+        self.assertFalse(res_pin_pw.get_json()['success'])
+
+        # 4. Incorrect password rejected
+        res_bad_pw = self.client.post('/api/admin/login', json={'password': 'wrongpassword'})
+        self.assertEqual(res_bad_pw.status_code, 401)
+        self.assertFalse(res_bad_pw.get_json()['success'])
 
 if __name__ == '__main__':
     unittest.main()

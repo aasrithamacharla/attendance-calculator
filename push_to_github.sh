@@ -38,7 +38,7 @@ if git diff --cached --quiet; then
     echo "[-] No new uncommitted changes (commit already exists)."
 else
     echo "[-] Committing files..."
-    git commit -m "Configure Netlify serverless deployment for Flask with netlify.toml and functions bridge"
+    git commit -m "Update dashboard to AJ Attendance Dashboard, connect attendance-90920 Firebase RTDB, and configure Gunicorn for Render"
 fi
 
 # 6. Push to GitHub
