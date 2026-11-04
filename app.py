@@ -40,8 +40,13 @@ def check_site_access():
     # Allow static assets and favicon
     if request.path.startswith('/static') or request.path == '/favicon.ico':
         return
-    # Allow login, lock, and verification endpoints, as well as root
-    if request.path in ['/', '/login', '/auth', '/api/site/verify-pin', '/api/login', '/api/admin/login', '/lock', '/logout']:
+    # Allow login, lock, and verification endpoints, as well as root and common route aliases
+    allowed_unlocked_paths = [
+        '/', '/dashboard', '/project', '/projects', '/home', '/attendance',
+        '/login', '/auth', '/api/site/verify-pin', '/api/login',
+        '/api/admin/login', '/lock', '/logout'
+    ]
+    if request.path in allowed_unlocked_paths:
         return
     # Enforce PIN unlock for any other protected endpoints
     if not session.get('site_unlocked'):
@@ -168,6 +173,11 @@ def sync_from_firebase():
 
 # 1. Main Dashboard: Protected by Security PIN Gate
 @app.route('/', methods=['GET', 'POST'])
+@app.route('/dashboard', methods=['GET', 'POST'])
+@app.route('/project', methods=['GET', 'POST'])
+@app.route('/projects', methods=['GET', 'POST'])
+@app.route('/home', methods=['GET', 'POST'])
+@app.route('/attendance', methods=['GET', 'POST'])
 def dashboard():
     error = None
     if request.method == 'POST':

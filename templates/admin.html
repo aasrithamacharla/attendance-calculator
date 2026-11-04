@@ -1058,7 +1058,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!needsSync && fbWorkers && typeof fbWorkers === 'object' && !fbWorkers.error) {
                 for (const wk of Object.keys(fbWorkers)) {
                     const wid = wk.replace(/^worker_/, '');
-                    if (!document.querySelector(`#workersTableBody tr[data-worker-id="${wid}"]`)) {
+                    if (!document.querySelector(`#adminWorkersTableBody tr[data-worker-id="${wid}"], #workersTableBody tr[data-worker-id="${wid}"]`)) {
                         needsSync = true;
                         break;
                     }
@@ -1066,15 +1066,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (needsSync) {
-                try {
-                    await fetch('/api/firebase/client-sync', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ employees: fbEmps, workers: fbWorkers || {} })
-                    });
-                } catch (e) {}
-                window.location.reload();
-                return;
+                const syncSig = Object.keys(fbEmps || {}).sort().join(',') + '|' + Object.keys(fbWorkers || {}).sort().join(',');
+                const lastSig = sessionStorage.getItem('last_admin_fb_sync_sig');
+                const lastTime = parseInt(sessionStorage.getItem('last_admin_fb_sync_time') || '0', 10);
+                const now = Date.now();
+
+                // Loop breaker: prevent reloading if already synced recently or with the same data signature
+                if (lastSig === syncSig || (now - lastTime < 10000)) {
+                    console.warn('[Admin Sync] Reload loop prevented for signature:', syncSig);
+                } else {
+                    try {
+                        const syncRes = await fetch('/api/firebase/client-sync', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ employees: fbEmps, workers: fbWorkers || {} })
+                        });
+                        const syncData = await syncRes.json();
+                        if (syncRes.ok && syncData.success) {
+                            sessionStorage.setItem('last_admin_fb_sync_sig', syncSig);
+                            sessionStorage.setItem('last_admin_fb_sync_time', String(now));
+                            window.location.reload();
+                            return;
+                        } else {
+                            console.warn('[Admin Sync] client-sync returned error:', syncData);
+                        }
+                    } catch (e) {
+                        console.warn('[Admin Sync] Network error during client-sync:', e);
+                    }
+                }
             }
 
             if (fbEmps && typeof fbEmps === 'object' && Object.keys(fbEmps).length > 0) {
@@ -1089,7 +1108,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (fbWorkers && typeof fbWorkers === 'object' && !fbWorkers.error && Object.keys(fbWorkers).length > 0) {
                 const validWorkerIds = new Set(Object.keys(fbWorkers).map(k => k.replace(/^worker_/, '')));
-                document.querySelectorAll('#workersTableBody tr.admin-worker-row').forEach(row => {
+                document.querySelectorAll('#adminWorkersTableBody tr.admin-worker-row, #workersTableBody tr.admin-worker-row').forEach(row => {
                     const wid = row.getAttribute('data-worker-id');
                     if (wid && !validWorkerIds.has(wid)) {
                         row.remove();

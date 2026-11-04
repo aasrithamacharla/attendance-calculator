@@ -614,16 +614,6 @@
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                     </button>
                 </div>
-                <div class="flex items-center justify-between mt-2">
-                    <p class="text-xs text-slate-500">Required password: <code class="text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">attendance</code></p>
-                    <button 
-                        type="button" 
-                        id="autofillAdminPassBtn" 
-                        class="text-xs font-semibold text-brand-400 hover:text-brand-300 underline"
-                    >
-                        Autofill Password
-                    </button>
-                </div>
             </div>
 
             <div id="adminLoginError" class="hidden p-3 rounded-xl bg-rose-950/70 border border-rose-500/30 text-rose-300 text-xs"></div>
@@ -754,15 +744,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (needsSync) {
-                try {
-                    await fetch('/api/firebase/client-sync', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ employees: fbEmps, workers: fbWorkers || {} })
-                    });
-                } catch (e) {}
-                window.location.reload();
-                return;
+                const syncSig = Object.keys(fbEmps || {}).sort().join(',') + '|' + Object.keys(fbWorkers || {}).sort().join(',');
+                const lastSig = sessionStorage.getItem('last_dash_fb_sync_sig');
+                const lastTime = parseInt(sessionStorage.getItem('last_dash_fb_sync_time') || '0', 10);
+                const now = Date.now();
+
+                // Loop breaker: prevent reloading if already synced recently or with the same data signature
+                if (lastSig === syncSig || (now - lastTime < 10000)) {
+                    console.warn('[Dashboard Sync] Reload loop prevented for signature:', syncSig);
+                } else {
+                    try {
+                        const syncRes = await fetch('/api/firebase/client-sync', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ employees: fbEmps, workers: fbWorkers || {} })
+                        });
+                        const syncData = await syncRes.json();
+                        if (syncRes.ok && syncData.success) {
+                            sessionStorage.setItem('last_dash_fb_sync_sig', syncSig);
+                            sessionStorage.setItem('last_dash_fb_sync_time', String(now));
+                            window.location.reload();
+                            return;
+                        } else {
+                            console.warn('[Dashboard Sync] client-sync returned error:', syncData);
+                        }
+                    } catch (e) {
+                        console.warn('[Dashboard Sync] Network error during client-sync:', e);
+                    }
+                }
             }
 
             if (fbEmps && typeof fbEmps === 'object' && !fbEmps.error && Object.keys(fbEmps).length > 0) {
@@ -1497,7 +1506,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const adminLoginForm = document.getElementById('adminLoginForm');
     const adminPassInput = document.getElementById('adminPasswordInput');
     const toggleAdminPassBtn = document.getElementById('toggleAdminPassBtn');
-    const autofillAdminPassBtn = document.getElementById('autofillAdminPassBtn');
     const adminLoginError = document.getElementById('adminLoginError');
 
     function openAdminModal() {
@@ -1517,13 +1525,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (openAdminModalBtn) openAdminModalBtn.addEventListener('click', openAdminModal);
     if (closeAdminModalBtn) closeAdminModalBtn.addEventListener('click', closeAdminModal);
     if (cancelAdminModalBtn) cancelAdminModalBtn.addEventListener('click', closeAdminModal);
-
-    if (autofillAdminPassBtn) {
-        autofillAdminPassBtn.addEventListener('click', () => {
-            adminPassInput.value = 'attendance';
-            adminPassInput.focus();
-        });
-    }
 
     if (toggleAdminPassBtn) {
         toggleAdminPassBtn.addEventListener('click', () => {

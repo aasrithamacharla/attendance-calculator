@@ -7,7 +7,7 @@
 
 [functions]
   directory = "netlify/functions"
-  included_files = ["templates/**", "static/**", "firebase_initial_data.json"]
+  included_files = ["templates/**", "static/**"]
 
 [[redirects]]
   from = "/static/*"
